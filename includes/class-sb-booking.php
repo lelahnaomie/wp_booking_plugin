@@ -20,6 +20,10 @@ class SB_Booking_Handler {
             add_action( 'wp_ajax_nopriv_sb_paystack_verify', array( $this, 'ajax_paystack_verify' ) );
             add_action( 'wp_ajax_sb_flw_verify',             array( $this, 'ajax_flw_verify' ) );
             add_action( 'wp_ajax_nopriv_sb_flw_verify',      array( $this, 'ajax_flw_verify' ) );
+            add_action( 'wp_ajax_sb_campay_initiate',        array( $this, 'ajax_campay_initiate' ) );
+            add_action( 'wp_ajax_nopriv_sb_campay_initiate', array( $this, 'ajax_campay_initiate' ) );
+            add_action( 'wp_ajax_sb_campay_check',           array( $this, 'ajax_campay_check' ) );
+            add_action( 'wp_ajax_nopriv_sb_campay_check',    array( $this, 'ajax_campay_check' ) );
             self::$ajax_done = true;
         }
     }
@@ -42,21 +46,31 @@ class SB_Booking_Handler {
 
             <!-- STEPS HEADER — clickable tabs -->
             <div class="sb-steps-header">
-                <div class="sb-step-bubble active" data-step="1"><span>1</span><small>Service</small></div>
+                <div class="sb-step-bubble active" data-step="1" onclick="SBApp.tabTo(1)" title="Go to Service"><span>1</span><small>Service</small></div>
                 <div class="sb-step-line"></div>
-                <div class="sb-step-bubble" data-step="2"><span>2</span><small>Date &amp; Time</small></div>
+                <div class="sb-step-bubble" data-step="2" onclick="SBApp.tabTo(2)" title="Go to Date &amp; Time"><span>2</span><small>Date &amp; Time</small></div>
                 <div class="sb-step-line"></div>
-                <div class="sb-step-bubble" data-step="3"><span>3</span><small>Your Info</small></div>
+                <div class="sb-step-bubble" data-step="3" onclick="SBApp.tabTo(3)" title="Go to Your Info"><span>3</span><small>Your Info</small></div>
                 <div class="sb-step-line"></div>
-                <div class="sb-step-bubble" data-step="4"><span>&#10003;</span><small>Confirm</small></div>
+                <div class="sb-step-bubble" data-step="4" onclick="SBApp.tabTo(4)" title="Confirm"><span>&#10003;</span><small>Confirm</small></div>
             </div>
 
             <!-- ERROR BAR -->
             <div class="sb-error-bar" id="sbError" style="display:none"></div>
 
-            <!-- ── SERVICE ── -->
+            <!--  SERVICE  -->
             <div class="sb-panel active" id="sbStep1">
-                <h2 class="sb-panel-title">Choose a Service</h2>
+                <h2 class="sb-panel-title"><?php echo esc_html( $settings['service_label'] ?? 'Choose a Service' ); ?></h2>
+<?php if (!empty($settings['enable_days'])): ?>
+<div class="sb-field sb-days-field">
+    <label>Number of Days</label>
+    <div class="sb-days-stepper">
+        <button type="button" class="sb-days-btn sb-days-minus" onclick="sbAdjDays(-1)">−</button>
+        <input type="number" id="sbDaysInput" name="sb_days" min="1" value="1" readonly>
+        <button type="button" class="sb-days-btn sb-days-plus" onclick="sbAdjDays(1)">+</button>
+    </div>
+</div>
+<?php endif; ?>
                 <?php if ( empty( $groups ) ): ?>
                     <p class="sb-notice">No services available. Please add services in the admin panel.</p>
                 <?php else: ?>
@@ -66,11 +80,15 @@ class SB_Booking_Handler {
                         <div class="sb-service-grid">
                         <?php foreach ( $group['services'] as $svc ): ?>
                             <?php
-                            $svc_staff = SB_DB::get_staff_for_service($svc->id);
-                            if(empty($svc_staff)) $svc_staff = SB_DB::get_staff(true);
-                            $svc_staff_json = json_encode(array_map(function($st){return array(
-                                'id'=>$st->id,'name'=>$st->name,'color'=>$st->color,'image'=>$st->image_url,'bio'=>$st->bio
-                            );}, $svc_staff));
+                            if ( ! empty( $settings['enable_staff'] ) ) {
+                                $svc_staff = SB_DB::get_staff_for_service($svc->id);
+                                if ( empty($svc_staff) ) $svc_staff = SB_DB::get_staff(true);
+                                $svc_staff_json = json_encode(array_map(function($st){
+                                    return array('id'=>$st->id,'name'=>$st->name,'color'=>$st->color,'image'=>$st->image_url,'bio'=>$st->bio);
+                                }, $svc_staff));
+                            } else {
+                                $svc_staff_json = '[]';
+                            }
                             ?>
                             <div class="sb-service-card" data-id="<?php echo $svc->id; ?>"
                                  data-price="<?php echo floatval( $svc->price ); ?>"
@@ -80,12 +98,21 @@ class SB_Booking_Handler {
                                  data-desc="<?php echo esc_attr($svc->description); ?>"
                                  data-color="<?php echo esc_attr($svc->color); ?>"
                                  data-image="<?php echo esc_attr($svc->image_url); ?>"
+                                 data-gallery="<?php echo esc_attr($svc->gallery_images ?? ''); ?>"
+                                 data-policy="<?php echo esc_attr($svc->service_policy ?? ''); ?>"
                                  data-staff='<?php echo esc_attr($svc_staff_json); ?>'
                                  style="--svc-color:<?php echo esc_attr( $svc->color ); ?>">
                                 <?php if ( $svc->image_url ): ?>
-                                <div class="sb-svc-img" style="background-image:url('<?php echo esc_url( $svc->image_url ); ?>')"></div>
+                                <div class="sb-svc-img sb-svc-img-full" style="background-image:url('<?php echo esc_url( $svc->image_url ); ?>')"></div>
                                 <?php else: ?>
                                 <div class="sb-svc-color-bar"></div>
+                                <?php endif; ?>
+                                <?php if ( ! empty( $svc->gallery_images ) ): ?>
+                                <div class="sb-card-gallery">
+                                <?php foreach ( array_filter( array_map( 'trim', explode( ',', $svc->gallery_images ) ) ) as $gimg ): ?>
+                                    <div class="sb-card-gal-thumb" style="background-image:url('<?php echo esc_url( $gimg ); ?>')"></div>
+                                <?php endforeach; ?>
+                                </div>
                                 <?php endif; ?>
                                 <div class="sb-svc-body">
                                     <strong><?php echo esc_html( $svc->name ); ?></strong>
@@ -98,6 +125,7 @@ class SB_Booking_Handler {
                                         <span class="sb-svc-price"><?php echo number_format( $svc->price ); ?> <?php echo esc_html( $currency ); ?></span>
                                         <?php endif; ?>
                                     </div>
+                                    <button class="sb-view-details-btn" type="button">View Details</button>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -106,9 +134,11 @@ class SB_Booking_Handler {
                 <?php endforeach; ?>
                 <?php endif; ?>
                 <?php
-                $terms_text = get_option('sb_terms_text','');
-                $rules_text = get_option('sb_appointment_rules','');
-                if($terms_text || $rules_text): ?>
+                $terms_text   = get_option('sb_terms_text','');
+                $rules_text   = get_option('sb_appointment_rules','');
+                $privacy_text = get_option('sb_privacy_text','');
+                $refund_text  = get_option('sb_refund_text','');
+                if($terms_text || $rules_text || $privacy_text || $refund_text): ?>
                 <p class="sb-policy-link">
                     By booking you agree to our
                     <a href="#" class="sb-tc-link" id="sbOpenPolicy">Terms &amp; Conditions</a>.
@@ -121,12 +151,28 @@ class SB_Booking_Handler {
                         </div>
                         <div class="sb-modal-body">
                             <?php if($rules_text): ?>
-                            <h4>Appointment Rules</h4>
+                            <div class="sb-policy-section">
+                            <h4> Cancellation &amp; Late Policy</h4>
                             <p><?php echo nl2br(esc_html($rules_text)); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            <?php if($refund_text): ?>
+                            <div class="sb-policy-section">
+                            <h4> Refund &amp; Deposit Policy</h4>
+                            <p><?php echo nl2br(esc_html($refund_text)); ?></p>
+                            </div>
                             <?php endif; ?>
                             <?php if($terms_text): ?>
-                            <h4>Terms &amp; Conditions</h4>
+                            <div class="sb-policy-section">
+                            <h4> Terms &amp; Conditions</h4>
                             <p><?php echo nl2br(esc_html($terms_text)); ?></p>
+                            </div>
+                            <?php endif; ?>
+                            <?php if($privacy_text): ?>
+                            <div class="sb-policy-section">
+                            <h4> Privacy Policy</h4>
+                            <p><?php echo nl2br(esc_html($privacy_text)); ?></p>
+                            </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -136,9 +182,9 @@ class SB_Booking_Handler {
 
 
 
-            <!-- ── DATE & TIME ── -->
+            <!--  DATE & TIME  -->
             <div class="sb-panel" id="sbStep2">
-                <h2 class="sb-panel-title">Pick a Date &amp; Time</h2>
+                <h2 class="sb-panel-title">Pick a Date &amp; Arrival Time</h2>
                 <div class="sb-datetime-wrap">
                     <div class="sb-calendar-wrap">
                         <div class="sb-cal-nav">
@@ -149,20 +195,20 @@ class SB_Booking_Handler {
                         <div class="sb-cal-grid" id="sbCalGrid"></div>
                     </div>
                     <div class="sb-slots-wrap">
-                        <h3 class="sb-slots-title" id="sbSlotsTitle">Select a date to see available times</h3>
+                        <h3 class="sb-slots-title" id="sbSlotsTitle">Select a date to see available arrival times</h3>
                         <div class="sb-slots-grid" id="sbSlotsGrid"></div>
                     </div>
                 </div>
                 <div class="sb-nav">
                     <button class="sb-btn sb-btn-back" onclick="SBApp.goTo(1)">&#8592; Back</button>
                     <button class="sb-btn sb-btn-primary"
-                        onclick="if(window.SBApp.state.time){window.SBApp.goTo(3);}else{alert('Please select a date and time first.');}">
+                        onclick="if(window.SBApp.state.time){window.SBApp.goTo(3);}else{alert('Please select a date and arrival time first.');}">
                         Continue &#8594;
                     </button>
                 </div>
             </div>
 
-            <!-- ── CUSTOMER INFO ── -->
+            <!--  CUSTOMER INFO  -->
             <div class="sb-panel" id="sbStep3">
                 <h2 class="sb-panel-title">Your Information</h2>
                 <div class="sb-form-fields">
@@ -191,7 +237,7 @@ class SB_Booking_Handler {
                 </div>
             </div>
 
-            <!-- ── REVIEW & CONFIRM ── -->
+            <!--  REVIEW & CONFIRM  -->
             <div class="sb-panel" id="sbStep4">
                 <h2 class="sb-panel-title">Review Your Booking</h2>
                 <div class="sb-review-card" id="sbReviewCard">
@@ -206,7 +252,7 @@ class SB_Booking_Handler {
                 </div>
             </div>
 
-            <!-- ── SUCCESS ── -->
+            <!--  SUCCESS  -->
             <div class="sb-panel" id="sbSuccess" style="display:none">
                 <div class="sb-success-wrap">
                     <div class="sb-success-icon">&#10003;</div>
@@ -228,7 +274,7 @@ class SB_Booking_Handler {
         return ob_get_clean();
     }
 
-    // ── AJAX: staff for service ────────────────────────────────
+    //  AJAX: staff for service 
     public function ajax_get_staff() {
         $service_id = intval( $_GET['service_id'] ?? 0 );
         $staff      = SB_DB::get_staff_for_service( $service_id );
@@ -248,7 +294,7 @@ class SB_Booking_Handler {
         wp_send_json_success( $out );
     }
 
-    // ── AJAX: slots for service+staff+date ────────────────────
+    //  AJAX: slots for service+staff+date 
     public function ajax_get_slots() {
         $service_id = intval( $_GET['service_id'] ?? 0 );
         $staff_id   = intval( $_GET['staff_id']   ?? 0 );
@@ -257,7 +303,7 @@ class SB_Booking_Handler {
         wp_send_json_success( $slots );
     }
 
-    // ── AJAX: unavailable dates for month ─────────────────────
+    //  AJAX: unavailable dates for month 
     public function ajax_get_unavailable() {
         $service_id = intval( $_GET['service_id'] ?? 0 );
         $staff_id   = intval( $_GET['staff_id']   ?? 0 );
@@ -267,7 +313,7 @@ class SB_Booking_Handler {
         wp_send_json_success( $dates );
     }
 
-    // ── AJAX: submit booking ───────────────────────────────────
+    //  AJAX: submit booking 
     public function ajax_submit() {
         if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'sb_pub' ) ) {
             wp_send_json_error( array( 'msg' => 'Security check failed.' ) );
@@ -281,6 +327,7 @@ class SB_Booking_Handler {
         $cust_phone  = sanitize_text_field( $_POST['phone']  ?? '' );
         $cust_email  = sanitize_email(      $_POST['email']  ?? '' );
         $notes       = sanitize_textarea_field( $_POST['notes'] ?? '' );
+        $num_days    = intval( $_POST['sb_days'] ?? 1 );
 
         // Validate
         if ( ! $service_id || ! $date || ! $start_time || ! $cust_name || ! $cust_phone ) {
@@ -306,7 +353,10 @@ class SB_Booking_Handler {
         }
 
         // Pricing — use service deposit_pct, fall back to admin global default, then 0
-        $total            = floatval( $service->price );
+        $base_price       = floatval( $service->price );
+        $total            = $base_price * $num_days;
+        // Only charge deposit if service has deposit_pct set, OR admin set a global default
+        // If neither is set (both 0), never show deposit step
         $svc_dep_pct      = floatval( $service->deposit_pct );
         $global_dep_pct   = intval( get_option('sb_default_deposit_pct', 0) );
         $dep_pct          = $svc_dep_pct > 0 ? $svc_dep_pct : $global_dep_pct;
@@ -324,6 +374,7 @@ class SB_Booking_Handler {
             'booking_date'   => $date,
             'start_time'     => $start_time,
             'end_time'       => $end_time,
+            'num_days'       => $num_days,
             'total_price'    => $total,
             'deposit_amount' => $deposit,
             'balance_amount' => $balance,
@@ -334,12 +385,12 @@ class SB_Booking_Handler {
 
         // WhatsApp message
         $staff   = SB_DB::get_staff_member( $staff_id );
-        $wa_num  = preg_replace( '/[^0-9]/', '', get_option( 'sb_whatsapp', '237678899434' ) );
+        $wa_num  = preg_replace( '/[^0-9]/', '', get_option( 'sb_whatsapp', '' ) );
         $wa_msg  = "New Booking #$booking_id\n";
         $wa_msg .= "Service: {$service->name}\n";
         $wa_msg .= "Staff: " . ( $staff ? $staff->name : 'Any' ) . "\n";
         $wa_msg .= "Date: " . date( 'D d M Y', strtotime( $date ) ) . "\n";
-        $wa_msg .= "Time: $start_time – $end_time\n";
+        $wa_msg .= "Arrival Time: $start_time – $end_time\n";
         $wa_msg .= "Client: $cust_name\n";
         $wa_msg .= "Phone: $cust_phone\n";
         if ( $total > 0 ) {
@@ -355,19 +406,22 @@ class SB_Booking_Handler {
             'sb_nonce' => wp_create_nonce( 'sb_pdf_' . $booking_id ),
         ), home_url() );
 
-        // Send notifications
+        // Send notifications — WhatsApp + Email fired here
+        sb_debug_log( "ajax_submit: booking #{$booking_id} saved — calling send_booking_created now" );
         $notifier = new SB_Notification();
         $notifier->send_booking_created( $booking_id );
+        sb_debug_log( "ajax_submit: send_booking_created finished" );
 
         $settings    = get_option('sb_settings', array());
-        $paystack_pk = sanitize_text_field($settings['paystack_public_key'] ?? '');
-        $flw_pk      = sanitize_text_field($settings['flw_public_key']      ?? '');
+        $paystack_pk      = sanitize_text_field($settings['paystack_public_key'] ?? '');
+        $flw_pk           = sanitize_text_field($settings['flw_public_key']      ?? '');
+        $campay_username  = sanitize_text_field($settings['campay_username']     ?? '');
 
-        // Only trigger in-plugin payment if a REAL gateway (Paystack or Flutterwave) is configured.
-        // If neither is set, the booking is saved with status awaiting_deposit,
+        // Only trigger in-plugin payment if a REAL gateway is configured.
+        // If none is set, the booking is saved with status awaiting_deposit,
         // the WhatsApp message tells the client the deposit amount,
         // and the business owner collects payment in person / via phone.
-        $has_real_gateway = ( ! empty($paystack_pk) || ! empty($flw_pk) );
+        $has_real_gateway = ( ! empty($paystack_pk) || ! empty($flw_pk) || ! empty($campay_username) );
 
         $appointment_rules = get_option('sb_appointment_rules', '');
         wp_send_json_success( array(
@@ -375,7 +429,7 @@ class SB_Booking_Handler {
             'wa_url'           => $wa_url,
             'pdf_url'          => $pdf_url,
             'deposit_amount'   => $deposit,
-            'deposit_required' => $deposit > 0 && $has_real_gateway, // only trigger payment UI if real gateway exists
+            'deposit_required' => $deposit > 0 && $has_real_gateway,
             'currency'         => get_option('sb_currency','FCFA'),
             'customer_email'   => $cust_email,
             'customer_phone'   => $cust_phone,
@@ -384,10 +438,11 @@ class SB_Booking_Handler {
             'appointment_rules'=> $appointment_rules,
             'paystack_pk'      => $paystack_pk,
             'flw_pk'           => $flw_pk,
+            'campay_enabled'   => ! empty($campay_username) ? 1 : 0,
         ) );
     }
 
-    // ── AJAX: Verify Paystack payment ─────────────────────────
+    //  AJAX: Verify Paystack payment 
     public function ajax_paystack_verify() {
         if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'sb_pub' ) ) wp_send_json_error(array('msg'=>'Security error'));
         $ref        = sanitize_text_field( $_POST['reference'] ?? '' );
@@ -410,6 +465,7 @@ class SB_Booking_Handler {
         SB_DB::update_payment_status($booking_id, 'deposit_paid', $ref);
         $notifier = new SB_Notification();
         $notifier->send_payment_confirmed($booking_id);
+        $notifier->send_whatsapp_admin($booking_id, 'payment');
         $b = SB_DB::get_booking($booking_id);
         wp_send_json_success(array(
             'booking_id' => $booking_id,
@@ -417,7 +473,7 @@ class SB_Booking_Handler {
         ));
     }
 
-    // ── AJAX: Verify Flutterwave payment ──────────────────────
+    //  AJAX: Verify Flutterwave payment 
     public function ajax_flw_verify() {
         if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'sb_pub' ) ) wp_send_json_error(array('msg'=>'Security error'));
         $tx_id      = sanitize_text_field( $_POST['transaction_id'] ?? '' );
@@ -439,10 +495,175 @@ class SB_Booking_Handler {
         SB_DB::update_payment_status($booking_id, 'deposit_paid', $tx_id);
         $notifier = new SB_Notification();
         $notifier->send_payment_confirmed($booking_id);
+        $notifier->send_whatsapp_admin($booking_id, 'payment');
         wp_send_json_success(array(
             'booking_id' => $booking_id,
             'pdf_url'    => add_query_arg(array('sb_pdf'=>$booking_id,'sb_nonce'=>wp_create_nonce('sb_pdf_'.$booking_id)), home_url()),
         ));
     }
 
+    //  AJAX: Initiate CamPay payment 
+    public function ajax_campay_initiate() {
+        if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'sb_pub' ) ) wp_send_json_error(array('msg'=>'Security error'));
+
+        $booking_id = intval( $_POST['booking_id'] ?? 0 );
+        $phone      = sanitize_text_field( $_POST['phone'] ?? '' );
+        $settings   = get_option('sb_settings', array());
+        $username   = sanitize_text_field( $settings['campay_username'] ?? '' );
+        $password   = sanitize_text_field( $settings['campay_password'] ?? '' );
+        $sandbox    = ! empty( $settings['campay_sandbox'] );
+
+        if ( ! $username || ! $password ) wp_send_json_error(array('msg'=>'CamPay is not configured. Please add credentials in Settings.'));
+        if ( ! $booking_id ) wp_send_json_error(array('msg'=>'Invalid booking.'));
+
+        $booking = SB_DB::get_booking( $booking_id );
+        if ( ! $booking ) wp_send_json_error(array('msg'=>'Booking not found.'));
+
+        $amount = round( floatval($booking->deposit_amount) );
+        if ( $amount <= 0 ) wp_send_json_error(array('msg'=>'No deposit required.'));
+
+        $base = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
+
+        $token_resp = wp_remote_post( $base . '/token/', array(
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => json_encode(array('username' => $username, 'password' => $password)),
+            'timeout' => 30,
+        ));
+        if ( is_wp_error($token_resp) ) wp_send_json_error(array('msg'=>'Could not reach CamPay.'));
+        $token_body = json_decode(wp_remote_retrieve_body($token_resp), true);
+        $token = $token_body['token'] ?? '';
+        if ( ! $token ) wp_send_json_error(array('msg'=>'CamPay authentication failed. Check credentials in Settings.'));
+
+        $currency        = get_option('sb_currency','XAF');
+        $campay_currency = ( $currency === 'FCFA' ) ? 'XAF' : $currency;
+        $phone_clean     = preg_replace('/[^0-9]/', '', $phone);
+        if ( strlen($phone_clean) === 9 ) $phone_clean = '237' . $phone_clean;
+
+        $collect_resp = wp_remote_post( $base . '/collect/', array(
+            'headers' => array(
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Token ' . $token,
+            ),
+            'body' => json_encode(array(
+                'amount'             => (string) $amount,
+                'currency'           => $campay_currency,
+                'from'               => $phone_clean,
+                'description'        => 'Booking deposit #' . $booking_id,
+                'external_reference' => 'SB-' . $booking_id . '-' . time(),
+            )),
+            'timeout' => 45,
+        ));
+        if ( is_wp_error($collect_resp) ) wp_send_json_error(array('msg'=>'Payment request failed. Please try again.'));
+        $collect_body = json_decode(wp_remote_retrieve_body($collect_resp), true);
+
+        $ref = $collect_body['reference'] ?? '';
+        if ( ! $ref ) {
+            $err = $collect_body['detail'] ?? ($collect_body['message'] ?? 'Could not initiate payment. Ensure the phone number is a valid MTN or Orange Cameroon number.');
+            wp_send_json_error(array('msg' => $err));
+        }
+
+        set_transient( 'sb_campay_ref_' . $booking_id, $ref, 30 * MINUTE_IN_SECONDS );
+
+        wp_send_json_success(array(
+            'reference'  => $ref,
+            'booking_id' => $booking_id,
+            'phone'      => $phone_clean,
+            'amount'     => $amount,
+        ));
+    }
+
+    //  AJAX: Poll CamPay payment status 
+    public function ajax_campay_check() {
+        if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'sb_pub' ) ) wp_send_json_error(array('msg'=>'Security error'));
+
+        $booking_id = intval( $_POST['booking_id'] ?? 0 );
+        $reference  = sanitize_text_field( $_POST['reference'] ?? '' );
+        $settings   = get_option('sb_settings', array());
+        $username   = sanitize_text_field( $settings['campay_username'] ?? '' );
+        $password   = sanitize_text_field( $settings['campay_password'] ?? '' );
+        $sandbox    = ! empty( $settings['campay_sandbox'] );
+
+        if ( ! $reference || ! $booking_id ) wp_send_json_error(array('msg'=>'Missing reference.'));
+
+        $base = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
+
+        $token_resp = wp_remote_post( $base . '/token/', array(
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => json_encode(array('username' => $username, 'password' => $password)),
+            'timeout' => 30,
+        ));
+        if ( is_wp_error($token_resp) ) wp_send_json_error(array('msg'=>'Could not reach CamPay.'));
+        $token_body = json_decode(wp_remote_retrieve_body($token_resp), true);
+        $token = $token_body['token'] ?? '';
+        if ( ! $token ) wp_send_json_error(array('msg'=>'CamPay auth failed.'));
+
+        $check_resp = wp_remote_get( $base . '/transaction/' . $reference . '/', array(
+            'headers' => array('Authorization' => 'Token ' . $token),
+            'timeout' => 30,
+        ));
+        if ( is_wp_error($check_resp) ) wp_send_json_error(array('msg'=>'Status check failed.'));
+        $body   = json_decode(wp_remote_retrieve_body($check_resp), true);
+        $status = strtoupper( $body['status'] ?? '' );
+
+        if ( $status === 'SUCCESSFUL' ) {
+            SB_DB::update_payment_status($booking_id, 'deposit_paid', $reference);
+            $notifier = new SB_Notification();
+            $notifier->send_payment_confirmed($booking_id);
+            $notifier->send_whatsapp_admin($booking_id, 'payment');
+            delete_transient( 'sb_campay_ref_' . $booking_id );
+
+            // Auto-withdrawal: disburse (amount - 5%) to owner's MoMo
+            $momo_number = sanitize_text_field( $settings['campay_momo_number'] ?? '' );
+            $momo_name   = sanitize_text_field( $settings['campay_momo_name']   ?? '' );
+            if ( $momo_number ) {
+                $booking_obj     = SB_DB::get_booking( $booking_id );
+                $paid_amount     = round( floatval( $booking_obj ? $booking_obj->deposit_amount : 0 ) );
+                $disburse_amount = round( $paid_amount * 0.95 );
+                if ( $disburse_amount > 0 ) {
+                    $d_token_resp = wp_remote_post( $base . '/token/', array(
+                        'headers' => array( 'Content-Type' => 'application/json' ),
+                        'body'    => json_encode( array( 'username' => $username, 'password' => $password ) ),
+                        'timeout' => 30,
+                    ) );
+                    if ( ! is_wp_error( $d_token_resp ) ) {
+                        $d_token_body = json_decode( wp_remote_retrieve_body( $d_token_resp ), true );
+                        $d_token      = $d_token_body['token'] ?? '';
+                        if ( $d_token ) {
+                            $sb_currency     = get_option( 'sb_currency', 'XAF' );
+                            $campay_currency = ( $sb_currency === 'FCFA' ) ? 'XAF' : $sb_currency;
+                            $momo_clean      = preg_replace( '/[^0-9]/', '', $momo_number );
+                            if ( strlen( $momo_clean ) === 9 ) $momo_clean = '237' . $momo_clean;
+                            $disburse_body = array(
+                                'amount'             => (string) $disburse_amount,
+                                'currency'           => $campay_currency,
+                                'to'                 => $momo_clean,
+                                'description'        => 'Booking #' . $booking_id . ' auto-withdrawal',
+                                'external_reference' => 'SB-OUT-' . $booking_id,
+                            );
+                            if ( $momo_name ) {
+                                $disburse_body['to_name'] = $momo_name;
+                            }
+                            wp_remote_post( $base . '/disburse/', array(
+                                'headers' => array(
+                                    'Content-Type'  => 'application/json',
+                                    'Authorization' => 'Token ' . $d_token,
+                                ),
+                                'body'    => json_encode( $disburse_body ),
+                                'timeout' => 45,
+                            ) );
+                        }
+                    }
+                }
+            }
+
+            wp_send_json_success(array(
+                'paid'    => true,
+                'pdf_url' => add_query_arg(array('sb_pdf'=>$booking_id,'sb_nonce'=>wp_create_nonce('sb_pdf_'.$booking_id)), home_url()),
+            ));
+        } elseif ( $status === 'FAILED' ) {
+            wp_send_json_error(array('msg'=>'Payment was declined or failed. Please try again.','failed'=>true));
+        } else {
+            wp_send_json_success(array('paid'=>false,'status'=>$status));
+        }
+    }
 }

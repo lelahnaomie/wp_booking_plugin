@@ -21,7 +21,10 @@ class SB_PDF {
         $date     = date( 'D d M Y', strtotime( $b->booking_date ) );
         $time     = date( 'g:i A', strtotime( $b->start_time ) ) . ' – ' . date( 'g:i A', strtotime( $b->end_time ) );
 
+        $filename = 'receipt-booking-' . $id . '.html';
         header( 'Content-Type: text/html; charset=UTF-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'X-Content-Type-Options: nosniff' );
         echo '<!DOCTYPE html><html><head><meta charset="UTF-8">
         <title>Receipt #' . $id . '</title>
         <style>

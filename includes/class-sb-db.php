@@ -23,6 +23,7 @@ class SB_DB {
             capacity     INT(11)       DEFAULT 1,
             visibility   TINYINT(1)    DEFAULT 1,
             sort_order   INT(11)       DEFAULT 0,
+            service_policy TEXT          DEFAULT '',
             status       VARCHAR(20)   DEFAULT 'active',
             created_at   DATETIME      DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
@@ -180,18 +181,74 @@ class SB_DB {
             'price'       => floatval( $d['price'] ?? 0 ),
             'deposit_pct' => floatval( $d['deposit_pct'] ?? 0 ),
             'color'       => sanitize_hex_color( $d['color'] ?? '#5B2D8E' ),
-            'image_url'   => esc_url_raw( $d['image_url'] ?? '' ),
-            'capacity'    => intval( $d['capacity'] ?? 1 ),
+            'image_url'    => esc_url_raw( $d['image_url'] ?? '' ),
+            'gallery_images' => sanitize_textarea_field( $d['gallery_images'] ?? '' ),
+            'capacity'     => intval( $d['capacity'] ?? 1 ),
             'visibility'  => intval( $d['visibility'] ?? 1 ),
             'sort_order'  => intval( $d['sort_order'] ?? 0 ),
+            'service_policy' => sanitize_textarea_field( $d['service_policy'] ?? '' ),
             'status'      => sanitize_text_field( $d['status'] ?? 'active' ),
         );
         if ( ! empty( $d['id'] ) ) {
             $wpdb->update( $wpdb->prefix . 'sb_services', $data, array( 'id' => intval( $d['id'] ) ) );
             return intval( $d['id'] );
         }
-        $wpdb->insert( $wpdb->prefix . 'sb_services', $data );
+        $result = $wpdb->insert( $wpdb->prefix . 'sb_services', $data );
+        if ( $result === false ) {
+            // Log the error so admin can diagnose
+            error_log( 'Smart Booking: service insert failed — ' . $wpdb->last_error );
+            return 0;
+        }
         return $wpdb->insert_id;
+    }
+
+    // ── DB UPGRADE ────────────────────────────────────────────
+    // Safely adds columns that may be missing from older installs.
+    // Uses IF NOT EXISTS so it's safe to run on every page load.
+    static function maybe_upgrade() {
+        global $wpdb;
+        $t = $wpdb->prefix . 'sb_services';
+
+        // Add service_policy column if missing (added in v4.5)
+        $col = $wpdb->get_results( "SHOW COLUMNS FROM `{$t}` LIKE 'service_policy'" );
+        if ( empty( $col ) ) {
+            $wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN `service_policy` TEXT DEFAULT '' AFTER `sort_order`" );
+        }
+
+        // Add image_url to services if missing
+        $col2 = $wpdb->get_results( "SHOW COLUMNS FROM `{$t}` LIKE 'image_url'" );
+        if ( empty( $col2 ) ) {
+            $wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN `image_url` VARCHAR(500) DEFAULT '' AFTER `color`" );
+        }
+
+        // Add gallery_images to services if missing
+        $col_gal = $wpdb->get_results( "SHOW COLUMNS FROM `{$t}` LIKE 'gallery_images'" );
+        if ( empty( $col_gal ) ) {
+            $wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN `gallery_images` TEXT DEFAULT '' AFTER `image_url`" );
+        }
+
+        // Add campay_momo_name / campay_momo_number to settings handled via options, no DB column needed
+
+        // Add deposit_pct to services if missing
+        $col3 = $wpdb->get_results( "SHOW COLUMNS FROM `{$t}` LIKE 'deposit_pct'" );
+        if ( empty( $col3 ) ) {
+            $wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN `deposit_pct` DECIMAL(5,2) DEFAULT 0 AFTER `price`" );
+        }
+
+        // Add payment columns to bookings if missing
+        $tb = $wpdb->prefix . 'sb_bookings';
+        $col4 = $wpdb->get_results( "SHOW COLUMNS FROM `{$tb}` LIKE 'deposit_amount'" );
+        if ( empty( $col4 ) ) {
+            $wpdb->query( "ALTER TABLE `{$tb}` ADD COLUMN `deposit_amount` DECIMAL(10,2) DEFAULT 0 AFTER `total_price`" );
+        }
+        $col5 = $wpdb->get_results( "SHOW COLUMNS FROM `{$tb}` LIKE 'balance_amount'" );
+        if ( empty( $col5 ) ) {
+            $wpdb->query( "ALTER TABLE `{$tb}` ADD COLUMN `balance_amount` DECIMAL(10,2) DEFAULT 0 AFTER `deposit_amount`" );
+        }
+        $col6 = $wpdb->get_results( "SHOW COLUMNS FROM `{$tb}` LIKE 'payment_status'" );
+        if ( empty( $col6 ) ) {
+            $wpdb->query( "ALTER TABLE `{$tb}` ADD COLUMN `payment_status` VARCHAR(30) DEFAULT 'unpaid' AFTER `payment_method`" );
+        }
     }
 
     static function delete_service( $id ) {
@@ -425,6 +482,18 @@ class SB_DB {
             "SELECT start_time, end_time FROM {$wpdb->prefix}sb_bookings
              WHERE staff_id=%d AND booking_date=%s AND status NOT IN ('cancelled')",
             intval( $staff_id ), sanitize_text_field( $date )
+        ) );
+    }
+
+    /**
+     * Used when staff is disabled — get all bookings for a service on a date regardless of staff.
+     */
+    static function get_booked_slots_for_service( $service_id, $date ) {
+        global $wpdb;
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT start_time, end_time FROM {$wpdb->prefix}sb_bookings
+             WHERE service_id=%d AND booking_date=%s AND status NOT IN ('cancelled')",
+            intval( $service_id ), sanitize_text_field( $date )
         ) );
     }
 

@@ -2,17 +2,18 @@
 /**
  * Plugin Name: Smart Booking
  * Description: Professional service booking system; services with images, staff, time slots, calendar, deposits, WhatsApp notifications. Built for African businesses.
- * Version:     4.1.0
+ * Version:     5.0.0
  * Author:      Lelah Naomie
  * License:     GPL2
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SB_VER',  '4.1.0' );
+define( 'SB_VER',  '5.1.0' );
 define( 'SB_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SB_URL',  plugin_dir_url( __FILE__ ) );
 define( 'SB_SLUG', 'smartbooking' );
+define( 'SB_DEBUG', true ); // Set to false to stop debug logging
 
 foreach ( array(
     'includes/class-sb-db.php',
@@ -31,6 +32,8 @@ foreach ( array(
 register_activation_hook( __FILE__, array( 'SB_DB', 'install' ) );
 
 add_action( 'plugins_loaded', function() {
+    // Always check and add any missing DB columns (safe, fast, idempotent)
+    SB_DB::maybe_upgrade();
     new SB_Admin();
     new SB_Calendar_Page();
     new SB_Booking_Handler();
@@ -38,7 +41,7 @@ add_action( 'plugins_loaded', function() {
 
 add_action( 'wp_enqueue_scripts',    'sb_public_assets' );
 add_action( 'admin_enqueue_scripts', 'sb_admin_assets'  );
-add_action( 'wp_head',               'sb_inline_css'    );
+add_action( 'wp_head',               'sb_inline_css', 999    );
 add_action( 'wp_footer',             'sb_float_btn'     );
 add_shortcode( 'smartbooking', array( 'SB_Booking_Handler', 'shortcode' ) );
 
@@ -72,11 +75,26 @@ add_action( 'admin_init', function() {
 function sb_public_assets() {
     wp_enqueue_style(  'sb-pub', SB_URL . 'assets/css/public.css', array(), SB_VER );
     wp_enqueue_script( 'sb-pub', SB_URL . 'assets/js/public.js',   array( 'jquery' ), SB_VER, true );
+    $sb_settings = get_option( 'sb_settings', array() );
     wp_localize_script( 'sb-pub', 'SB', array(
-        'ajax'     => admin_url( 'admin-ajax.php' ),
-        'nonce'    => wp_create_nonce( 'sb_pub' ),
-        'currency' => get_option( 'sb_currency', 'FCFA' ),
+        'ajax'                => admin_url( 'admin-ajax.php' ),
+        'nonce'               => wp_create_nonce( 'sb_pub' ),
+        'currency'            => get_option( 'sb_currency', 'FCFA' ),
+        'step1_heading'       => sanitize_text_field( $sb_settings['service_label'] ?? get_option( 'sb_step1_heading', 'Choose a Service' ) ),
+        'enable_daily_rental' => (int) ( $sb_settings['enable_days']   ?? get_option( 'sb_enable_daily_rental', 0 ) ),
+        'show_categories'     => (int) get_option( 'sb_show_categories', 1 ),
+        'require_staff'       => (int) ( $sb_settings['enable_staff'] ?? get_option( 'sb_require_staff', 1 ) ),
     ) );
+    
+    // Add form width CSS
+    $desktop_width = intval( get_option( 'sb_form_max_width', 900 ) );
+    wp_add_inline_style( 'sb-pub', "
+        @media (min-width: 1200px) {
+            .sb-wrap { max-width: {$desktop_width}px !important; }
+            .sb-modal-box { max-width: {$desktop_width}px !important; }
+            .sb-svc-modal-box { max-width: {$desktop_width}px !important; }
+        }
+    " );
 }
 
 function sb_admin_assets( $hook ) {
@@ -103,17 +121,32 @@ function sb_admin_assets( $hook ) {
         'nonce'          => wp_create_nonce( 'sb_adm' ),
         'confirm_delete' => 'Are you sure? This cannot be undone.',
     ) );
+    wp_localize_script( 'sb-adm', 'SB_ADM', array(
+        'ajax'  => admin_url( 'admin-ajax.php' ),
+        'nonce' => wp_create_nonce( 'sb_adm' ),
+    ) );
 }
 
 function sb_inline_css() {
-    $s  = get_option( 'sb_appearance', array() );
-    $p  = sanitize_hex_color( $s['primary']  ?? '#5B2D8E' );
-    $pd = sanitize_hex_color( $s['p_dark']   ?? '#4a2070' );
-    $ac = sanitize_hex_color( $s['accent']   ?? '#C9A84C' );
-    $bg = sanitize_hex_color( $s['bg']       ?? '#ffffff' );
-    $tx = sanitize_hex_color( $s['text']     ?? '#1a1a2e' );
-    $rd = intval( $s['radius'] ?? 10 );
-    echo "<style>.sb-wrap{--p:{$p};--pd:{$pd};--ac:{$ac};--bg:{$bg};--tx:{$tx};--rd:{$rd}px}</style>\n";
+    $s   = get_option( 'sb_appearance', array() );
+    $p   = sanitize_hex_color( $s['primary']  ?? '#5B2D8E' ) ?: '#5B2D8E';
+    $pd  = sanitize_hex_color( $s['p_dark']   ?? '#3b1a5c' ) ?: '#3b1a5c';
+    $hdt = sanitize_hex_color( $s['hd_text']  ?? '#ffffff' ) ?: '#ffffff';
+    $ac  = sanitize_hex_color( $s['accent']   ?? '#C9A84C' ) ?: '#C9A84C';
+    $hv  = sanitize_hex_color( $s['hover']    ?? '#3b1a5c' ) ?: '#3b1a5c';
+    $ar  = sanitize_hex_color( $s['arrow']    ?? '#5B2D8E' ) ?: '#5B2D8E';
+    $bg  = sanitize_hex_color( $s['bg']       ?? '#ffffff' ) ?: '#ffffff';
+    $tx  = sanitize_hex_color( $s['text']     ?? '#1a1a2e' ) ?: '#1a1a2e';
+    $bt  = sanitize_hex_color( $s['btn_text'] ?? '#ffffff' ) ?: '#ffffff';
+    $rd  = intval( $s['radius'] ?? 10 );
+    $rd2 = max( 0, $rd - 3 );
+    // Applied to :root AND every container — modals appended to <body> inherit too
+    echo "<style>
+:root{--p:{$p};--pd:{$pd};--hd-text:{$hdt};--ac:{$ac};--hover:{$hv};--arrow:{$ar};--bg:{$bg};--tx:{$tx};--btn-text:{$bt};--rd:{$rd}px;--rd2:{$rd2}px}
+.sb-wrap,#sbSvcModal,#sbPolicyModal,.sb-modal-overlay,.sb-svc-modal-box{
+  --p:{$p};--pd:{$pd};--hd-text:{$hdt};--ac:{$ac};--hover:{$hv};--arrow:{$ar};--bg:{$bg};--tx:{$tx};--btn-text:{$bt};--rd:{$rd}px;--rd2:{$rd2}px
+}
+</style>\n";
 }
 
 function sb_float_btn() {
@@ -122,6 +155,10 @@ function sb_float_btn() {
     $num  = preg_replace( '/[^0-9]/', '', $s['float_number'] );
     $type = $s['float_type'] ?? 'whatsapp';
     $href = $type === 'whatsapp' ? 'https://wa.me/' . $num : 'tel:+' . $num;
-    $lbl  = esc_html( $s['float_label'] ?? 'Chat with us' );
-    echo '<a href="' . esc_url( $href ) . '" class="sb-float" target="_blank" rel="noopener">' . $lbl . '</a>' . "\n";
+    $lbl        = esc_html( $s['float_label'] ?? 'Chat with us' );
+    $appearance = get_option( 'sb_appearance', array() );
+    $float_color = ! empty( $s['float_color'] ) ? $s['float_color'] : ( $appearance['primary'] ?? '#5B2D8E' );
+    $shadow_color = $float_color . '66';
+    $style = 'background:' . esc_attr( $float_color ) . ';box-shadow:0 4px 18px ' . esc_attr( $shadow_color ) . ';';
+    echo '<a href="' . esc_url( $href ) . '" class="sb-float" style="' . $style . '" target="_blank" rel="noopener">' . $lbl . '</a>' . "\n";
 }

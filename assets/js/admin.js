@@ -1,11 +1,18 @@
 /* Smart Booking v4 — Admin JS */
 (function ($) {
 'use strict';
+function sbAdminPrimary(){return getComputedStyle(document.documentElement).getPropertyValue('--p').trim()||'#5B2D8E';}
 $(document).ready(function () {
 
     // ── Color pickers ──────────────────────────────────────────
+    // ── Color pickers ──────────────────────────────────────────
     if ($.fn.wpColorPicker) {
-        $('.sbw-color').wpColorPicker();
+        $('.sbw-color').wpColorPicker({
+            change: function (event, ui) {
+                // Sync the original hidden input on every pick so serialize() gets the right value
+                $(this).val(ui.color.toString());
+            }
+        });
     }
 
     // ── Confirm/cancel from dashboard pending rows ─────────────
@@ -49,6 +56,7 @@ $(document).ready(function () {
             id:      $b.data('id'),
             name:    $b.data('name'),
             desc:    $b.data('desc'),
+            policy:  $b.attr('data-policy') || '',
             duration:$b.data('duration'),
             padding: $b.data('padding'),
             price:   $b.data('price'),
@@ -58,6 +66,7 @@ $(document).ready(function () {
             cap:     $b.data('cap'),
             status:  $b.data('status'),
             image:   $b.attr('data-image') || '',
+            gallery: $b.attr('data-gallery') || '',
         });
     });
 
@@ -67,6 +76,7 @@ $(document).ready(function () {
         $('#sbSvcId').val(isEdit ? data.id : '');
         $('#sbSvcName').val(isEdit ? data.name : '');
         $('#sbSvcDesc').val(isEdit ? data.desc : '');
+        $('#sbSvcPolicy').val(isEdit ? (data.policy||'') : '');
         $('#sbSvcDuration').val(isEdit ? data.duration : 60);
         $('#sbSvcPadding').val(isEdit ? data.padding : 0);
         $('#sbSvcPrice').val(isEdit ? data.price : 0);
@@ -77,7 +87,7 @@ $(document).ready(function () {
         if (isEdit && $.fn.wpColorPicker) {
             $('#sbSvcColor').wpColorPicker('color', data.color);
         } else {
-            $('#sbSvcColor').val(isEdit ? data.color : '#5B2D8E');
+            $('#sbSvcColor').val(isEdit ? data.color : sbAdminPrimary());
         }
         // Set existing image
         var img = (isEdit && data.image) ? data.image : '';
@@ -89,6 +99,10 @@ $(document).ready(function () {
             $('#sbSvcImgPreview').html('<span class="sbw-img-ph">No image</span>');
             $('#sbSvcRemoveImg').hide();
         }
+        // Gallery images
+        var galleryUrls = (isEdit && data.gallery) ? data.gallery : '';
+        $('#sbSvcGalleryUrls').val(galleryUrls);
+        renderGalleryPreview(galleryUrls ? galleryUrls.split(',').filter(Boolean) : []);
         $('#sbServiceModal').fadeIn(200);
     }
 
@@ -111,6 +125,42 @@ $(document).ready(function () {
         $(this).hide();
     });
 
+    // Gallery render helper
+    function renderGalleryPreview(urls) {
+        var $p = $('#sbGalleryPreview');
+        $p.empty();
+        urls.forEach(function(url, i) {
+            if (!url) return;
+            var $item = $('<div style="position:relative;width:70px;height:70px;"></div>');
+            $item.append('<img src="'+url+'" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;">');
+            var $del = $('<button type="button" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:11px;line-height:18px;text-align:center;padding:0;">×</button>');
+            $del.data('index', i);
+            $del.on('click', function() {
+                var arr = ($('#sbSvcGalleryUrls').val()||'').split(',').filter(Boolean);
+                arr.splice($(this).data('index'), 1);
+                $('#sbSvcGalleryUrls').val(arr.join(','));
+                renderGalleryPreview(arr);
+            });
+            $item.append($del);
+            $p.append($item);
+        });
+    }
+
+    // Gallery add button
+    var galleryMediaFrame = null;
+    $(document).on('click', '#sbSvcAddGalleryImg', function() {
+        if (galleryMediaFrame) { galleryMediaFrame.open(); return; }
+        galleryMediaFrame = wp.media({ title:'Add Gallery Images', button:{text:'Add to Gallery'}, multiple:true, library:{type:'image'} });
+        galleryMediaFrame.on('select', function() {
+            var sel = galleryMediaFrame.state().get('selection');
+            var existing = ($('#sbSvcGalleryUrls').val()||'').split(',').filter(Boolean);
+            sel.each(function(att) { existing.push(att.toJSON().url); });
+            $('#sbSvcGalleryUrls').val(existing.join(','));
+            renderGalleryPreview(existing);
+        });
+        galleryMediaFrame.open();
+    });
+
     $('.sbw-modal-close').on('click', function () { $('#sbServiceModal').fadeOut(200); });
 
     $('#sbSaveSvcBtn').on('click', function () {
@@ -118,6 +168,7 @@ $(document).ready(function () {
         if (!name) { alert('Service name is required.'); return; }
         var colorEl = $('#sbSvcColor');
         var color = colorEl.wpColorPicker ? colorEl.wpColorPicker('color') : colorEl.val();
+        $('#sbSaveSvcBtn').prop('disabled', true).text('Saving...');
         $.post(SB.ajax, {
             action:      'sb_save_service',
             nonce:       SB.nonce,
@@ -129,12 +180,22 @@ $(document).ready(function () {
             price:       $('#sbSvcPrice').val(),
             deposit_pct: $('#sbSvcDeposit').val(),
             color:       color,
-            image_url:   $('#sbSvcImageUrl').val(),
+            image_url:      $('#sbSvcImageUrl').val(),
+            gallery_images: $('#sbSvcGalleryUrls').val(),
+            service_policy: $('#sbSvcPolicy').val(),
             category_id: $('#sbSvcCat').val(),
             capacity:    $('#sbSvcCap').val(),
             status:      $('#sbSvcStatus').val(),
         }, function (res) {
-            if (res.success) location.reload();
+            if (res.success) {
+                location.reload();
+            } else {
+                $('#sbSaveSvcBtn').prop('disabled', false).text('Save Service');
+                alert('Error: ' + (res.data && res.data.msg ? res.data.msg : 'Could not save service. Please try again.'));
+            }
+        }).fail(function(xhr) {
+            $('#sbSaveSvcBtn').prop('disabled', false).text('Save Service');
+            alert('Connection error (HTTP ' + xhr.status + '). Check you are logged into WordPress.');
         });
     });
 
@@ -200,7 +261,8 @@ $(document).ready(function () {
             $('.sbw-hr-start[data-day="'+d+'"]').val(h.start || '08:00');
             $('.sbw-hr-end[data-day="'+d+'"]').val(h.end || '18:00');
             var $off = $('.sbw-day-off[data-day="'+d+'"]');
-            $off.prop('checked', !!parseInt(h.off));
+            // "Open" checkbox: checked = open = is_day_off is 0
+            $off.prop('checked', !parseInt(h.off));
             $('.sbw-hours-row[data-day="'+d+'"]').toggleClass('is-off', !!parseInt(h.off));
         });
 
@@ -211,7 +273,8 @@ $(document).ready(function () {
 
     $(document).on('change', '.sbw-day-off', function () {
         var day = $(this).data('day');
-        $('.sbw-hours-row[data-day="'+day+'"]').toggleClass('is-off', $(this).is(':checked'));
+        // "Open" checkbox: unchecked means the day is OFF
+        $('.sbw-hours-row[data-day="'+day+'"]').toggleClass('is-off', !$(this).is(':checked'));
     });
 
     $('#sbSaveStaffBtn').on('click', function () {
@@ -229,7 +292,7 @@ $(document).ready(function () {
             hours[d] = {
                 start: $('.sbw-hr-start[data-day="'+d+'"]').val(),
                 end:   $('.sbw-hr-end[data-day="'+d+'"]').val(),
-                off:   $('.sbw-day-off[data-day="'+d+'"]').is(':checked') ? 1 : 0,
+                off:   $('.sbw-day-off[data-day="'+d+'"]').is(':checked') ? 0 : 1,
             };
         });
 
@@ -259,15 +322,48 @@ $(document).ready(function () {
     // ── SETTINGS FORM ──────────────────────────────────────────
     $('#sbSettingsForm').on('submit', function (e) {
         e.preventDefault();
-        var data = $(this).serialize();
+        var $form = $(this);
+
+        var data = $form.serialize();
+
+        // wpColorPicker('color') is not a valid getter — it returns undefined.
+        // Instead we read via iris (the underlying engine), falling back to .val().
+        // We then explicitly replace each color field in the serialized string
+        // so stale/empty values from serialize() are overwritten.
+        $form.find('.sbw-color').each(function () {
+            var $input = $(this);
+            var name   = $input.attr('name');
+            if (!name) return;
+            var color  = '';
+            try { color = $input.iris('option', 'color'); } catch (e) {}
+            if (!color) color = $input.val();
+            if (color) {
+                data = data.replace(new RegExp('(^|&)' + encodeURIComponent(name) + '=[^&]*', 'g'), '');
+                data += '&' + encodeURIComponent(name) + '=' + encodeURIComponent(color);
+            }
+        });
+
         // serialize() skips unchecked checkboxes — add them manually as 0
-        if (!$(this).find('[name="float_on"]').is(':checked')) {
-            data += '&float_on=0';
-        }
+        var checkboxNames = ['float_on','campay_sandbox','show_categories','require_staff','enable_daily_rental','notify_whatsapp','notify_email_method','notify_sms','enable_staff','enable_days'];
+        $.each(checkboxNames, function(i, name) {
+            if (!$form.find('[name="' + name + '"]').is(':checked')) {
+                data += '&' + name + '=0';
+            }
+        });
+
+        var $btn = $form.find('[type="submit"]');
+        $btn.prop('disabled', true).text('Saving…');
+
         $.post(SB.ajax, data, function (res) {
             if (res.success) {
                 window.location.href = window.location.href.split('?')[0] + '?page=sb-settings&saved=1';
+            } else {
+                alert('Save failed. Please try again.');
+                $btn.prop('disabled', false).text('Save Settings');
             }
+        }).fail(function() {
+            alert('Network error. Please try again.');
+            $btn.prop('disabled', false).text('Save Settings');
         });
     });
 
@@ -305,7 +401,7 @@ $(document).ready(function () {
             html += '<thead><tr><th style="width:50px;border:1px solid #e5e7eb;padding:8px 4px;font-size:.8rem;color:#94a3b8">Time</th>';
             days.forEach(function (d) {
                 var isToday = fmt(d) === fmt(new Date());
-                html += '<th style="border:1px solid #e5e7eb;padding:8px 6px;font-size:.82rem;'+(isToday?'background:#f5f0ff;color:#5B2D8E;':'')+'">'
+                html += '<th style="border:1px solid #e5e7eb;padding:8px 6px;font-size:.82rem;'+(isToday?'background:var(--p,#f5f0ff);color:#fff;':'')+'">'
                       + d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'}) + '</th>';
             });
             html += '</tr></thead><tbody>';
@@ -320,7 +416,7 @@ $(document).ready(function () {
                         if (b.date !== dateStr) return;
                         var bh = parseInt(b.start.split(':')[0]);
                         if (bh === h) {
-                            slotHtml += '<div style="background:' + (b.color||'#5B2D8E') + ';color:#fff;border-radius:4px;padding:3px 6px;font-size:.75rem;margin:2px 0;line-height:1.3">'
+                            slotHtml += '<div style="background:' + (b.color||sbAdminPrimary()) + ';color:#fff;border-radius:4px;padding:3px 6px;font-size:.75rem;margin:2px 0;line-height:1.3">'
                                       + '<strong>' + escHtml(b.title) + '</strong><br>'
                                       + b.start.substring(0,5) + '–' + (b.end||'').substring(0,5)
                                       + '</div>';

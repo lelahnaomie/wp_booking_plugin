@@ -153,3 +153,14 @@
 .sbw-img-ph { font-size:.72rem; color:#9ca3af; text-align:center; padding:8px; }
 .sbw-img-btns { display:flex; flex-direction:column; gap:.4rem; }
 .sbw-color-dot { width:16px; height:16px; border-radius:50%; display:inline-block; vertical-align:middle; }
+
+/* ── Admin responsive ─────────────────────────────────────── */
+@media(max-width:900px){
+    .sbw { padding: 0 .5rem; }
+    .sbw-row3 { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:640px){
+    .sbw-row2, .sbw-row3 { grid-template-columns:1fr; }
+    .sbw-card { padding:14px; }
+    .sbw-actions { flex-direction:column; gap:.4rem; }
+}
