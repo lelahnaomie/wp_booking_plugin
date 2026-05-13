@@ -1,0 +1,473 @@
+/* ============================================================
+   Smart Booking — Frontend Admin Portal Layout
+   Black & White Theme + Full Mobile Support
+   ============================================================ */
+
+/* ── PORTAL SHELL ─────────────────────────────────────────── */
+.sbw-frontend-portal {
+    display: flex;
+    align-items: stretch;
+    min-height: 100vh;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Remove WP admin-only padding assumptions */
+.sbw-frontend-portal .wrap.sbw { background: transparent; padding: 0; min-height: unset; }
+.sbw-frontend-portal .sbw { padding-bottom: 0; }
+
+/* ── FULL-WIDTH OVERRIDE ──────────────────────────────────── */
+.sbw.sbw-frontend-portal {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+}
+.entry-content .sbw-frontend-portal,
+.site-content  .sbw-frontend-portal,
+.wp-block-post-content .sbw-frontend-portal {
+    max-width: none !important;
+    width: 100% !important;
+}
+body.page .entry-content,
+body.page .site-content,
+body.page main.site-main,
+body.page #primary,
+body.page #content {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* ── SIDEBAR NAV — BLACK ──────────────────────────────────── */
+.sbw-frontend-portal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 220px;
+    height: 100%;
+    background: #1a1a2e;
+    z-index: 0;
+    pointer-events: none;
+}
+.sbw-portal-nav {
+    position: relative;
+    z-index: 1;
+    width: 220px;
+    flex-shrink: 0;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    align-self: flex-start;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.sbw-portal-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    font-weight: 800;
+    font-size: .95rem;
+    color: #fff;
+    letter-spacing: -.02em;
+    flex-shrink: 0;
+}
+.sbw-portal-brand .dashicons {
+    color: #fff;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.sbw-portal-menu {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0 10px;
+    flex: 1;
+}
+.sbw-portal-menu li { margin: 2px 0; }
+.sbw-portal-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    color: rgba(255,255,255,.6);
+    text-decoration: none !important;
+    font-size: .875rem;
+    font-weight: 500;
+    transition: all .15s ease;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.sbw-portal-menu-item:hover {
+    background: rgba(255,255,255,.1);
+    color: #fff !important;
+    text-decoration: none !important;
+}
+.sbw-portal-menu-item.active {
+    background: rgba(255,255,255,.15);
+    color: #fff !important;
+    border-color: rgba(255,255,255,.25);
+    font-weight: 700;
+}
+.sbw-portal-menu-item .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.sbw-portal-nav-footer {
+    padding: 14px 10px 18px;
+    border-top: 1px solid rgba(255,255,255,.1);
+    flex-shrink: 0;
+}
+.sbw-portal-wp-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: rgba(255,255,255,.5) !important;
+    text-decoration: none !important;
+    font-size: .78rem;
+    font-weight: 500;
+    transition: all .15s;
+}
+.sbw-portal-wp-link:hover { color: rgba(255,255,255,.85) !important; background: rgba(255,255,255,.07); }
+.sbw-portal-wp-link .dashicons { font-size: 14px; width: 14px; height: 14px; }
+.sbw-logout-link { color: rgba(255,100,100,.65) !important; }
+.sbw-logout-link:hover { color: #ff6b6b !important; background: rgba(255,80,80,.1); }
+
+/* ── CONTENT AREA ─────────────────────────────────────────── */
+.sbw-portal-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+.sbw-portal-page {
+    padding: 24px 28px 60px;
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* ── MOBILE TOP BAR ───────────────────────────────────────── */
+.sbw-portal-mobile-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #1a1a2e;
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    width: 100%;
+    box-sizing: border-box;
+}
+.sbw-portal-nav-toggle {
+    background: rgba(255,255,255,.15);
+    border: none;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.sbw-portal-mobile-title {
+    font-weight: 700;
+    font-size: .95rem;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sbw-mobile-logout {
+    color: rgba(255,255,255,.6) !important;
+    text-decoration: none !important;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: all .15s;
+    flex-shrink: 0;
+}
+.sbw-mobile-logout:hover { color: #ff6b6b !important; }
+
+/* ── ACCESS DENIED ────────────────────────────────────────── */
+.sbw-portal-denied {
+    background: #fff5f5;
+    border: 1.5px solid #fca5a5;
+    border-radius: 12px;
+    padding: 28px 32px;
+    color: #dc2626;
+    font-family: inherit;
+}
+
+/* ── COPY BUTTON — BLACK THEME ────────────────────────────── */
+.sbw-copy-btn {
+    background: var(--sb-purple-lt, #f0f2f5) !important;
+    border: 1.5px solid var(--sb-purple, #1a1a2e) !important;
+    color: var(--sb-purple, #1a1a2e) !important;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: .8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    margin-left: 10px;
+}
+.sbw-copy-btn:hover {
+    background: #1a1a2e !important;
+    color: #fff !important;
+}
+
+/* ── HIDE ACTIVE PORTALS / ACTIVE PAGES — CSS fallback ───── */
+/* The PHP already removes this block, but CSS hides it as safety net */
+.sbw-portals-section,
+.sb-portals-card,
+.sbw-active-portals { display: none !important; }
+
+/* ── SERVICES TABLE: HORIZONTAL SCROLL ON MOBILE ─────────── */
+/* Applied at all widths so it's always scrollable if content overflows */
+.sbw-portal-page .sbw-card {
+    overflow: visible;
+}
+.sbw-portal-page .sbw-tbl-wrap,
+.sbw-portal-page .sbw-card > .sbw-tbl {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* ── DASHBOARD CARDS: FULL WIDTH ON MOBILE ────────────────── */
+/* All cards & cols must be full-width inside the portal content */
+.sbw-portal-content .sbw-cols {
+    flex-wrap: wrap;
+    width: 100%;
+}
+.sbw-portal-content .sbw-card {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.sbw-portal-content .sbw-col-r {
+    min-width: min(260px, 100%);
+}
+
+/* ── RESPONSIVE: 900px – mobile layout ───────────────────── */
+@media (max-width: 900px) {
+    .sbw-frontend-portal {
+        flex-direction: column;
+        min-height: unset;
+    }
+    .sbw-frontend-portal::before { display: none; }
+    .sbw-portal-mobile-bar { display: flex; }
+
+    /* Sidebar becomes slide-in drawer */
+    .sbw-portal-nav {
+        position: fixed !important;
+        top: 0 !important;
+        left: -280px !important;
+        width: 260px !important;
+        height: 100vh !important;
+        max-height: 100vh;
+        overflow-y: auto;
+        z-index: 1000;
+        transition: left 0.28s cubic-bezier(.4,0,.2,1);
+        background: #1a1a2e !important;
+        display: flex !important;
+        flex-direction: column;
+        padding-bottom: 20px;
+        box-shadow: none;
+        align-self: auto;
+    }
+    .sbw-portal-nav.open {
+        left: 0 !important;
+        box-shadow: 4px 0 40px rgba(0,0,0,.6);
+    }
+    .sbw-nav-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.45);
+        z-index: 999;
+        backdrop-filter: blur(2px);
+    }
+    .sbw-nav-overlay.active { display: block; }
+
+    /* Menu fills drawer */
+    .sbw-portal-menu { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; }
+    .sbw-portal-menu li { flex: none; width: 100%; }
+    .sbw-portal-menu-item { font-size: .875rem; padding: 10px 14px; width: 100%; white-space: normal; }
+    .sbw-portal-nav-footer { display: flex; }
+
+    /* Page padding */
+    .sbw-portal-page { padding: 16px 14px 40px; }
+
+    /* Dashboard: all cards full width, stacked */
+    .sbw-portal-content .sbw-cols {
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    .sbw-portal-content .sbw-cols > .sbw-card,
+    .sbw-portal-content .sbw-col-r {
+        width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+        box-sizing: border-box;
+        margin-bottom: 0;
+    }
+    .sbw-portal-content .sbw-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+
+    /* Stats: 3 columns → 2 on mobile */
+    .sbw-stats { grid-template-columns: repeat(3, 1fr) !important; gap: 10px; }
+
+    /* Row grids collapse */
+    .sbw-row2, .sbw-row3 { grid-template-columns: 1fr !important; }
+
+    /* Tables always scroll */
+    .sbw-tbl-wrap,
+    .sbw-portal-page .sbw-tbl-wrap,
+    .sbw-portal-page .sbw-card > .sbw-tbl,
+    .sbw-card > .sbw-tbl { overflow-x: auto !important; -webkit-overflow-scrolling: touch; display: block; }
+    .sbw-tbl { min-width: 520px; }
+
+    /* Filters, tabs */
+    .sbw-filters { flex-direction: column; gap: 8px; align-items: stretch; }
+    .sbw-filter-selects { flex-wrap: wrap; gap: 6px; }
+    .sbw-filter-selects select { flex: 1; min-width: 130px; }
+    .sbw-tabs { flex-wrap: wrap; gap: 4px; }
+    .sbw-tab { padding: 7px 10px; font-size: .8rem; }
+
+    /* Page header */
+    .sbw-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+    /* Quick actions */
+    .sbw-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* Modals → bottom sheets */
+    .sbw-modal-box {
+        max-width: 100vw !important;
+        width: 100% !important;
+        border-radius: 16px 16px 0 0 !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .sbw-modal { align-items: flex-end !important; }
+    .sbw-modal-body { padding: 16px; }
+    .sbw-modal-foot { padding: 12px 16px; flex-direction: column; gap: 8px; }
+    .sbw-modal-foot .sbw-btn,
+    .sbw-modal-foot .sbw-btn-ghost { width: 100%; text-align: center; }
+
+    /* Pending rows */
+    .sbw-pend-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sbw-pend-actions { width: 100%; }
+    .sbw-pend-actions .sbw-ab { flex: 1; text-align: center; }
+}
+
+@media (max-width: 600px) {
+    .sbw-portal-page { padding: 12px 10px 40px; }
+    .sbw-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    .sbw-tbl { font-size: .78rem; }
+    .sbw-tbl th:nth-child(4),
+    .sbw-tbl td:nth-child(4) { display: none; }
+    .sbw-fin-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+    .sbw-settings-section-body { padding: 14px; }
+    .sbw-settings-section-head { padding: 12px 14px; }
+    .sbw-portal-brand { font-size: .82rem; }
+    .sbw-svc-grid, .sbw-service-grid { grid-template-columns: 1fr !important; }
+    .sbw-staff-grid { grid-template-columns: 1fr !important; }
+    .sbw-cust-avatar { width: 30px; height: 30px; font-size: .72rem; flex-shrink: 0; }
+    #sbAdminCal { font-size: .78rem; }
+    #sbAdminCal-wrap { overflow-x: auto; }
+    .sbw-shortcode-block { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .sbw-fin-chart-wrap { height: 140px; }
+    #sbSettingsForm [type="submit"] { width: 100%; padding: 12px; font-size: .92rem; }
+    .sbw-acts { flex-wrap: wrap; gap: 5px; }
+    .sbw-status-sel { font-size: .75rem; padding: 4px 6px; }
+    .sbw-portal-content .sbw-quick-actions { grid-template-columns: 1fr 1fr !important; }
+}
+
+@media (max-width: 400px) {
+    .sbw-stats { grid-template-columns: 1fr 1fr !important; }
+    .sbw-fin-kpis { grid-template-columns: 1fr !important; }
+    .sbw-quick-actions { grid-template-columns: 1fr !important; }
+    .sbw-cust-avatar { display: none; }
+    .sbw-tab { font-size: .72rem; padding: 5px 8px; }
+    .sbw-portal-page { padding: 10px 6px 32px; }
+}
+
+/* ── BLACK & WHITE THEME OVERRIDES ───────────────────────── */
+/* Bar chart: remove purple gradient */
+.sbw-bar {
+    background: #222 !important;
+    border-radius: 5px 5px 0 0;
+}
+.sbw-bar.today { background: var(--sb-green, #1a7a4a) !important; }
+.sbw-fin-bar { background: #333 !important; }
+.sbw-fin-bar.today { background: var(--sb-green, #1a7a4a) !important; }
+
+/* Settings section heads */
+.sbw-settings-section-head {
+    background: var(--sb-purple-lt, #f0f2f5) !important;
+    border-bottom: 1px solid var(--sb-purple-mid, #dde1e8) !important;
+}
+.sbw-settings-section-head h3 { color: var(--sb-purple, #1a1a2e) !important; }
+.sbw-ss-icon { background: #1a1a2e !important; color: #fff !important; }
+
+/* Appointment border-left: use black */
+.sbw-appt { border-left-color: var(--sb-purple, #1a1a2e) !important; }
+.sbw-appt-time { color: var(--sb-purple, #1a1a2e) !important; }
+
+/* Pending rows hover */
+.sbw-pend-row:hover { background: #f5f5f5 !important; border-color: #ccc !important; }
+
+/* Table hover */
+.sbw-tbl tbody tr:hover td { background: #f8f8f8 !important; }
+.sbw-tbl thead th { background: var(--sb-purple-lt, #f0f2f5) !important; color: var(--sb-purple, #1a1a2e) !important; border-bottom-color: var(--sb-purple-mid, #dde1e8) !important; }
+
+/* Links */
+.sbw-lnk { color: var(--sb-purple, #1a1a2e) !important; }

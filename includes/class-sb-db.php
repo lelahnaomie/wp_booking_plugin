@@ -84,6 +84,7 @@ class SB_DB {
             booking_date   DATE          NOT NULL,
             start_time     TIME          NOT NULL,
             end_time       TIME          NOT NULL,
+            num_days       INT(11)       DEFAULT 1,
             total_price    DECIMAL(10,2) DEFAULT 0,
             deposit_amount DECIMAL(10,2) DEFAULT 0,
             balance_amount DECIMAL(10,2) DEFAULT 0,
@@ -121,6 +122,123 @@ class SB_DB {
 
         // Seed default data if empty
         self::maybe_seed();
+
+        // Auto-create frontend portal pages
+        self::create_portal_pages();
+    }
+
+    /**
+     * Auto-create frontend portal pages (login + one page per section).
+     * Safe to run multiple times — skips pages that already exist.
+     * Also auto-assigns portal page IDs to plugin settings.
+     */
+    static function create_portal_pages() {
+        // Login page — created first so its URL can be used as parent
+        $login_pid = self::ensure_page(
+            'Portal Login',
+            '[sb_portal_login]',
+            0,
+            'sb-portal-login'
+        );
+
+        // Customer self-service portal page
+        $customer_portal_pid = self::ensure_page(
+            'My Bookings',
+            '[sb_portal]',
+            0,
+            'sb-my-bookings'
+        );
+
+        // Staff management portal page
+        $staff_portal_pid = self::ensure_page(
+            'Staff Portal',
+            '[sb_staff_portal]',
+            0,
+            'sb-staff-portal'
+        );
+
+        // Admin portal section pages — parent = login page (keeps URLs tidy)
+        $portal_pages = array(
+            'Dashboard'  => array( 'shortcode' => '[sb_admin_dashboard]', 'slug' => 'sb-dashboard'  ),
+            'Bookings'   => array( 'shortcode' => '[sb_admin_bookings]',  'slug' => 'sb-bookings'   ),
+            'Services'   => array( 'shortcode' => '[sb_admin_services]',  'slug' => 'sb-services'   ),
+            'Staff'      => array( 'shortcode' => '[sb_admin_staff]',     'slug' => 'sb-staff'      ),
+            'Customers'  => array( 'shortcode' => '[sb_admin_customers]', 'slug' => 'sb-customers'  ),
+            'Calendar'   => array( 'shortcode' => '[sb_admin_calendar]',  'slug' => 'sb-calendar'   ),
+            'Finances'   => array( 'shortcode' => '[sb_admin_finances]',  'slug' => 'sb-finances'   ),
+            'Settings'   => array( 'shortcode' => '[sb_admin_settings]',  'slug' => 'sb-settings'   ),
+        );
+
+        foreach ( $portal_pages as $title => $info ) {
+            self::ensure_page( $title, $info['shortcode'], $login_pid, $info['slug'] );
+        }
+
+        // ── Auto-assign page IDs to plugin settings ──────────────────────
+        // Only overwrite if not already set (preserves manual user choices)
+        if ( ! get_option( 'sb_login_page_id' ) && $login_pid ) {
+            update_option( 'sb_login_page_id', $login_pid );
+        }
+        if ( ! get_option( 'sb_portal_page_id' ) && $customer_portal_pid ) {
+            update_option( 'sb_portal_page_id', $customer_portal_pid );
+        }
+        if ( ! get_option( 'sb_staff_portal_page_id' ) && $staff_portal_pid ) {
+            update_option( 'sb_staff_portal_page_id', $staff_portal_pid );
+        }
+
+        // Always ensure login page ID is kept current
+        if ( $login_pid ) {
+            update_option( 'sb_login_page_id', $login_pid );
+        }
+
+        // ── Apply Elementor Canvas template to all portal pages ───────────
+        // Covers both newly-created pages and any that already existed
+        $all_page_ids = array_filter( array_merge(
+            array( $login_pid, $customer_portal_pid, $staff_portal_pid ),
+            array_map( function( $info ) {
+                global $wpdb;
+                return (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT ID FROM {$wpdb->posts} WHERE post_name=%s AND post_type='page' LIMIT 1",
+                    $info['slug']
+                ) );
+            }, $portal_pages )
+        ) );
+
+        foreach ( $all_page_ids as $pid ) {
+            if ( $pid ) {
+                update_post_meta( $pid, '_wp_page_template', 'elementor_canvas' );
+            }
+        }
+    }
+
+    /**
+     * Create a page if it doesn't already exist.
+     * Checks by post_name (slug) to avoid duplicates.
+     * Returns the page ID.
+     */
+    private static function ensure_page( $title, $content, $parent = 0, $slug = '' ) {
+        global $wpdb;
+
+        if ( $slug ) {
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_name=%s AND post_type='page' AND post_status IN ('publish','draft') LIMIT 1",
+                $slug
+            ) );
+            if ( $existing ) return (int) $existing;
+        }
+
+        $pid = wp_insert_post( array(
+            'post_title'   => $title,
+            'post_name'    => $slug,
+            'post_content' => $content,
+            'post_status'  => 'publish',
+            'post_type'    => 'page',
+            'post_parent'  => (int) $parent,
+            'meta_input'   => array(
+                '_wp_page_template' => 'elementor_canvas',
+            ),
+        ) );
+
+        return is_wp_error( $pid ) ? 0 : (int) $pid;
     }
 
     static function maybe_seed() {
@@ -248,6 +366,10 @@ class SB_DB {
         $col6 = $wpdb->get_results( "SHOW COLUMNS FROM `{$tb}` LIKE 'payment_status'" );
         if ( empty( $col6 ) ) {
             $wpdb->query( "ALTER TABLE `{$tb}` ADD COLUMN `payment_status` VARCHAR(30) DEFAULT 'unpaid' AFTER `payment_method`" );
+        }
+        $col7 = $wpdb->get_results( "SHOW COLUMNS FROM `{$tb}` LIKE 'num_days'" );
+        if ( empty( $col7 ) ) {
+            $wpdb->query( "ALTER TABLE `{$tb}` ADD COLUMN `num_days` INT(11) DEFAULT 1 AFTER `end_time`" );
         }
     }
 
@@ -380,6 +502,7 @@ class SB_DB {
             'booking_date'   => sanitize_text_field( $d['booking_date'] ),
             'start_time'     => sanitize_text_field( $d['start_time'] ),
             'end_time'       => sanitize_text_field( $d['end_time'] ),
+            'num_days'       => intval( $d['num_days'] ?? 1 ),
             'total_price'    => floatval( $d['total_price'] ),
             'deposit_amount' => floatval( $d['deposit_amount'] ?? 0 ),
             'balance_amount' => floatval( $d['balance_amount'] ?? 0 ),

@@ -29,13 +29,13 @@ class SB_PDF {
         <title>Receipt #' . $id . '</title>
         <style>
           body{font-family:sans-serif;max-width:500px;margin:40px auto;padding:20px;color:#1a1a2e}
-          h1{color:#5B2D8E;font-size:1.4rem;margin-bottom:4px}
+          h1{color:#111111;font-size:1.4rem;margin-bottom:4px}
           .sub{color:#64748b;font-size:.9rem;margin-bottom:24px}
           table{width:100%;border-collapse:collapse}
           td{padding:10px 14px;border-bottom:1px solid #f1f5f9}
           tr:nth-child(even) td{background:#f8f5ff}
           .label{font-weight:bold;width:140px}
-          .total{font-size:1.1rem;color:#5B2D8E;font-weight:bold}
+          .total{font-size:1.1rem;color:#111111;font-weight:bold}
           .footer{margin-top:32px;font-size:.85rem;color:#94a3b8;text-align:center}
           @media print{body{margin:0}}
         </style></head><body>
@@ -56,7 +56,7 @@ class SB_PDF {
           <tr><td class="label">Status</td><td>' . ucfirst(esc_html($b->status)) . '</td></tr>
         </table>
         <div class="footer">Thank you for your booking. Please keep this receipt.<br>
-        <button onclick="window.print()" style="margin-top:12px;padding:8px 20px;background:#5B2D8E;color:#fff;border:none;border-radius:6px;cursor:pointer">Print / Save PDF</button>
+        <button onclick="window.print()" style="margin-top:12px;padding:8px 20px;background:#000;color:#fff;border:none;border-radius:6px;cursor:pointer">Print / Save PDF</button>
         </div></body></html>';
     }
 }

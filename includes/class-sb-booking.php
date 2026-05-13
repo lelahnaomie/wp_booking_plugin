@@ -24,8 +24,21 @@ class SB_Booking_Handler {
             add_action( 'wp_ajax_nopriv_sb_campay_initiate', array( $this, 'ajax_campay_initiate' ) );
             add_action( 'wp_ajax_sb_campay_check',           array( $this, 'ajax_campay_check' ) );
             add_action( 'wp_ajax_nopriv_sb_campay_check',    array( $this, 'ajax_campay_check' ) );
+            // Fresh nonce endpoint — bypasses page cache so live sites always get a valid nonce
+            add_action( 'wp_ajax_sb_get_nonce',              array( $this, 'ajax_get_nonce' ) );
+            add_action( 'wp_ajax_nopriv_sb_get_nonce',       array( $this, 'ajax_get_nonce' ) );
             self::$ajax_done = true;
         }
+    }
+
+    /**
+     * Returns a fresh nonce via AJAX — not cached by page caches.
+     * JS fetches this just before any sensitive POST so live sites
+     * never hit a stale cached nonce.
+     */
+    public function ajax_get_nonce() {
+        nocache_headers();
+        wp_send_json_success( array( 'nonce' => wp_create_nonce( 'sb_pub' ) ) );
     }
 
     static function shortcode( $atts ) {
@@ -60,10 +73,9 @@ class SB_Booking_Handler {
 
             <!--  SERVICE  -->
             <div class="sb-panel active" id="sbStep1">
-                <h2 class="sb-panel-title"><?php echo esc_html( $settings['service_label'] ?? 'Choose a Service' ); ?></h2>
-<?php if (!empty($settings['enable_days'])): ?>
-<div class="sb-field sb-days-field">
-    <label>Number of Days</label>
+                <?php if (!empty($settings['enable_days'])): ?>
+<div class="sb-field sb-days-field sb-days-field-step1">
+    <label><?php echo esc_html( get_option( 'sb_days_label', 'Number of Days' ) ); ?></label>
     <div class="sb-days-stepper">
         <button type="button" class="sb-days-btn sb-days-minus" onclick="sbAdjDays(-1)">−</button>
         <input type="number" id="sbDaysInput" name="sb_days" min="1" value="1" readonly>
@@ -71,12 +83,17 @@ class SB_Booking_Handler {
     </div>
 </div>
 <?php endif; ?>
+                <h2 class="sb-panel-title"><?php echo esc_html( $settings['service_label'] ?? 'Choose a Service' ); ?></h2>
                 <?php if ( empty( $groups ) ): ?>
                     <p class="sb-notice">No services available. Please add services in the admin panel.</p>
                 <?php else: ?>
                 <?php foreach ( $groups as $group ): ?>
                     <div class="sb-cat-group">
                         <h3 class="sb-cat-title"><?php echo esc_html( $group['cat']->name ); ?></h3>
+                        <div class="sb-swipe-hint" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            Swipe to see more
+                        </div>
                         <div class="sb-service-grid">
                         <?php foreach ( $group['services'] as $svc ): ?>
                             <?php
@@ -107,20 +124,14 @@ class SB_Booking_Handler {
                                 <?php else: ?>
                                 <div class="sb-svc-color-bar"></div>
                                 <?php endif; ?>
-                                <?php if ( ! empty( $svc->gallery_images ) ): ?>
-                                <div class="sb-card-gallery">
-                                <?php foreach ( array_filter( array_map( 'trim', explode( ',', $svc->gallery_images ) ) ) as $gimg ): ?>
-                                    <div class="sb-card-gal-thumb" style="background-image:url('<?php echo esc_url( $gimg ); ?>')"></div>
-                                <?php endforeach; ?>
-                                </div>
-                                <?php endif; ?>
+                                <?php /* Gallery images shown only in popup modal, not on cards */ ?>
                                 <div class="sb-svc-body">
                                     <strong><?php echo esc_html( $svc->name ); ?></strong>
                                     <?php if ( $svc->description ): ?>
                                     <p class="sb-svc-desc"><?php echo esc_html( $svc->description ); ?></p>
                                     <?php endif; ?>
                                     <div class="sb-svc-meta">
-                                        <span class="sb-svc-dur">⏱ <?php echo SB_Services::format_duration( $svc->duration ); ?></span>
+                                        <span class="sb-svc-dur">⏱ <?php echo ! empty( $settings['enable_days'] ) ? '1 Day' : SB_Services::format_duration( $svc->duration ); ?></span>
                                         <?php if ( $svc->price > 0 ): ?>
                                         <span class="sb-svc-price"><?php echo number_format( $svc->price ); ?> <?php echo esc_html( $currency ); ?></span>
                                         <?php endif; ?>
@@ -178,15 +189,17 @@ class SB_Booking_Handler {
                     </div>
                 </div>
                 <?php endif; ?>
+
             </div>
 
 
 
             <!--  DATE & TIME  -->
             <div class="sb-panel" id="sbStep2">
-                <h2 class="sb-panel-title">Pick a Date &amp; Arrival Time</h2>
+                <h2 class="sb-panel-title sb-dt-main-heading">Pick an Arrival Date &amp; Time</h2>
                 <div class="sb-datetime-wrap">
                     <div class="sb-calendar-wrap">
+                        <h3 class="sb-datetime-section-heading sb-dt-sub-heading">Select an Arrival Date</h3>
                         <div class="sb-cal-nav">
                             <button type="button" class="sb-cal-prev" id="sbCalPrev">&#8592;</button>
                             <span class="sb-cal-month" id="sbCalMonth"></span>
@@ -195,6 +208,7 @@ class SB_Booking_Handler {
                         <div class="sb-cal-grid" id="sbCalGrid"></div>
                     </div>
                     <div class="sb-slots-wrap">
+                        <h3 class="sb-datetime-section-heading sb-dt-sub-heading">Select an Arrival Time</h3>
                         <h3 class="sb-slots-title" id="sbSlotsTitle">Select a date to see available arrival times</h3>
                         <div class="sb-slots-grid" id="sbSlotsGrid"></div>
                     </div>
@@ -269,8 +283,7 @@ class SB_Booking_Handler {
 
         </div><!-- .sb-wrap -->
         <?php
-        $nonce = wp_create_nonce( 'sb_pub' );
-        echo "<script>window.SB_NONCE='{$nonce}';</script>";
+        // NOTE: Nonce is now fetched live via sb_get_nonce AJAX to bypass page cache
         return ob_get_clean();
     }
 
@@ -385,11 +398,17 @@ class SB_Booking_Handler {
 
         // WhatsApp message
         $staff   = SB_DB::get_staff_member( $staff_id );
-        $wa_num  = preg_replace( '/[^0-9]/', '', get_option( 'sb_whatsapp', '' ) );
+        // Use sb_whatsapp (manual WA link number) with fallback to admin_wa_number (Meta API number)
+        $wa_num_raw = get_option( 'sb_whatsapp', '' );
+        if ( empty( trim( $wa_num_raw ) ) ) {
+            $sb_settings_tmp = get_option( 'sb_settings', array() );
+            $wa_num_raw = $sb_settings_tmp['admin_wa_number'] ?? '';
+        }
+        $wa_num  = preg_replace( '/[^0-9]/', '', $wa_num_raw );
         $wa_msg  = "New Booking #$booking_id\n";
         $wa_msg .= "Service: {$service->name}\n";
         $wa_msg .= "Staff: " . ( $staff ? $staff->name : 'Any' ) . "\n";
-        $wa_msg .= "Date: " . date( 'D d M Y', strtotime( $date ) ) . "\n";
+        $wa_msg .= "Arrival Date: " . date( 'D d M Y', strtotime( $date ) ) . "\n";
         $wa_msg .= "Arrival Time: $start_time – $end_time\n";
         $wa_msg .= "Client: $cust_name\n";
         $wa_msg .= "Phone: $cust_phone\n";
@@ -410,6 +429,16 @@ class SB_Booking_Handler {
         sb_debug_log( "ajax_submit: booking #{$booking_id} saved — calling send_booking_created now" );
         $notifier = new SB_Notification();
         $notifier->send_booking_created( $booking_id );
+        // Send portal invite email to new customers (lets them set a password and access dashboard)
+        $bk_email = sanitize_email( $_POST['customer_email'] ?? '' );
+        $bk_name  = sanitize_text_field( $_POST['customer_name'] ?? '' );
+        if ( $bk_email && class_exists('SB_Portal') ) {
+            global $wpdb;
+            $cust = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sb_customers WHERE email=%s", $bk_email
+            ) );
+            if ( $cust ) SB_Portal::send_portal_invite( $cust->id, $bk_email, $bk_name );
+        }
         sb_debug_log( "ajax_submit: send_booking_created finished" );
 
         $settings    = get_option('sb_settings', array());
@@ -417,10 +446,11 @@ class SB_Booking_Handler {
         $flw_pk           = sanitize_text_field($settings['flw_public_key']      ?? '');
         $campay_username  = sanitize_text_field($settings['campay_username']     ?? '');
 
-        // Only trigger in-plugin payment if a REAL gateway is configured.
-        // If none is set, the booking is saved with status awaiting_deposit,
-        // the WhatsApp message tells the client the deposit amount,
-        // and the business owner collects payment in person / via phone.
+        // deposit_required is true whenever a deposit amount > 0 is set.
+        // Gateway buttons are shown/hidden in JS based on whether keys are configured.
+        // If no gateway is configured, JS shows a manual/WhatsApp payment notice instead.
+        // NOTE: Do NOT gate deposit_required on has_real_gateway — that would silently
+        // skip the payment step entirely if credentials were ever cleared.
         $has_real_gateway = ( ! empty($paystack_pk) || ! empty($flw_pk) || ! empty($campay_username) );
 
         $appointment_rules = get_option('sb_appointment_rules', '');
@@ -429,7 +459,7 @@ class SB_Booking_Handler {
             'wa_url'           => $wa_url,
             'pdf_url'          => $pdf_url,
             'deposit_amount'   => $deposit,
-            'deposit_required' => $deposit > 0 && $has_real_gateway,
+            'deposit_required' => $deposit > 0,   // Always show payment step when deposit > 0
             'currency'         => get_option('sb_currency','FCFA'),
             'customer_email'   => $cust_email,
             'customer_phone'   => $cust_phone,
@@ -522,17 +552,21 @@ class SB_Booking_Handler {
         $amount = round( floatval($booking->deposit_amount) );
         if ( $amount <= 0 ) wp_send_json_error(array('msg'=>'No deposit required.'));
 
-        $base = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
+        $base            = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
 
+        // Obtain CamPay token using configured credentials
         $token_resp = wp_remote_post( $base . '/token/', array(
             'headers' => array('Content-Type' => 'application/json'),
             'body'    => json_encode(array('username' => $username, 'password' => $password)),
-            'timeout' => 30,
+            'timeout' => 20,
         ));
-        if ( is_wp_error($token_resp) ) wp_send_json_error(array('msg'=>'Could not reach CamPay.'));
+        if ( is_wp_error($token_resp) ) wp_send_json_error(array('msg'=>'Could not connect to CamPay. Check your credentials.'));
         $token_body = json_decode(wp_remote_retrieve_body($token_resp), true);
-        $token = $token_body['token'] ?? '';
-        if ( ! $token ) wp_send_json_error(array('msg'=>'CamPay authentication failed. Check credentials in Settings.'));
+        $permanent_token = $token_body['token'] ?? '';
+        if ( ! $permanent_token ) {
+            $err = $token_body['detail'] ?? 'Invalid CamPay credentials. Check your username and password in Settings.';
+            wp_send_json_error(array('msg' => $err));
+        }
 
         $currency        = get_option('sb_currency','XAF');
         $campay_currency = ( $currency === 'FCFA' ) ? 'XAF' : $currency;
@@ -542,7 +576,7 @@ class SB_Booking_Handler {
         $collect_resp = wp_remote_post( $base . '/collect/', array(
             'headers' => array(
                 'Content-Type'  => 'application/json',
-                'Authorization' => 'Token ' . $token,
+                'Authorization' => 'Token ' . $permanent_token,
             ),
             'body' => json_encode(array(
                 'amount'             => (string) $amount,
@@ -585,20 +619,20 @@ class SB_Booking_Handler {
 
         if ( ! $reference || ! $booking_id ) wp_send_json_error(array('msg'=>'Missing reference.'));
 
-        $base = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
+        $base            = $sandbox ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
 
-        $token_resp = wp_remote_post( $base . '/token/', array(
+        // Obtain token from credentials
+        $token_resp2 = wp_remote_post( $base . '/token/', array(
             'headers' => array('Content-Type' => 'application/json'),
             'body'    => json_encode(array('username' => $username, 'password' => $password)),
-            'timeout' => 30,
+            'timeout' => 20,
         ));
-        if ( is_wp_error($token_resp) ) wp_send_json_error(array('msg'=>'Could not reach CamPay.'));
-        $token_body = json_decode(wp_remote_retrieve_body($token_resp), true);
-        $token = $token_body['token'] ?? '';
-        if ( ! $token ) wp_send_json_error(array('msg'=>'CamPay auth failed.'));
+        $token_body2 = is_wp_error($token_resp2) ? array() : json_decode(wp_remote_retrieve_body($token_resp2), true);
+        $permanent_token = $token_body2['token'] ?? '';
+        if ( ! $permanent_token ) wp_send_json_error(array('msg'=>'CamPay authentication failed. Check credentials in Settings.'));
 
         $check_resp = wp_remote_get( $base . '/transaction/' . $reference . '/', array(
-            'headers' => array('Authorization' => 'Token ' . $token),
+            'headers' => array('Authorization' => 'Token ' . $permanent_token),
             'timeout' => 30,
         ));
         if ( is_wp_error($check_resp) ) wp_send_json_error(array('msg'=>'Status check failed.'));
@@ -612,46 +646,52 @@ class SB_Booking_Handler {
             $notifier->send_whatsapp_admin($booking_id, 'payment');
             delete_transient( 'sb_campay_ref_' . $booking_id );
 
-            // Auto-withdrawal: disburse (amount - 5%) to owner's MoMo
-            $momo_number = sanitize_text_field( $settings['campay_momo_number'] ?? '' );
-            $momo_name   = sanitize_text_field( $settings['campay_momo_name']   ?? '' );
+            // Auto-withdrawal: disburse (amount - 5%) to owner's MoMo using permanent token
+            $momo_number    = sanitize_text_field( $settings['campay_momo_number'] ?? '' );
+            $momo_name      = sanitize_text_field( $settings['campay_momo_name']   ?? '' );
+            // $permanent_token already obtained above from credentials
             if ( $momo_number ) {
                 $booking_obj     = SB_DB::get_booking( $booking_id );
                 $paid_amount     = round( floatval( $booking_obj ? $booking_obj->deposit_amount : 0 ) );
                 $disburse_amount = round( $paid_amount * 0.95 );
                 if ( $disburse_amount > 0 ) {
-                    $d_token_resp = wp_remote_post( $base . '/token/', array(
-                        'headers' => array( 'Content-Type' => 'application/json' ),
-                        'body'    => json_encode( array( 'username' => $username, 'password' => $password ) ),
-                        'timeout' => 30,
+                    $sb_currency     = get_option( 'sb_currency', 'XAF' );
+                    $campay_currency = ( $sb_currency === 'FCFA' ) ? 'XAF' : $sb_currency;
+                    $momo_clean      = preg_replace( '/[^0-9]/', '', $momo_number );
+                    if ( strlen( $momo_clean ) === 9 ) $momo_clean = '237' . $momo_clean;
+                    $disburse_body = array(
+                        'amount'             => (string) $disburse_amount,
+                        //'currency'           => $campay_currency,
+                        'to'                 => $momo_clean,
+                        'description'        => 'Booking #' . $booking_id . ' auto-withdrawal',
+                        'external_reference' => 'SB-OUT-' . $booking_id,
+                    );
+                    if ( $momo_name ) {
+                        $disburse_body['to_name'] = $momo_name;
+                    }
+                    $disburse_resp = wp_remote_post( $base . '/withdraw/', array(
+                        'headers' => array(
+                            'Content-Type'  => 'application/json',
+                            'Authorization' => 'Token ' . $permanent_token,
+                        ),
+                        'body'    => json_encode( $disburse_body ),
+                        'timeout' => 45,
                     ) );
-                    if ( ! is_wp_error( $d_token_resp ) ) {
-                        $d_token_body = json_decode( wp_remote_retrieve_body( $d_token_resp ), true );
-                        $d_token      = $d_token_body['token'] ?? '';
-                        if ( $d_token ) {
-                            $sb_currency     = get_option( 'sb_currency', 'XAF' );
-                            $campay_currency = ( $sb_currency === 'FCFA' ) ? 'XAF' : $sb_currency;
-                            $momo_clean      = preg_replace( '/[^0-9]/', '', $momo_number );
-                            if ( strlen( $momo_clean ) === 9 ) $momo_clean = '237' . $momo_clean;
-                            $disburse_body = array(
-                                'amount'             => (string) $disburse_amount,
-                                'currency'           => $campay_currency,
-                                'to'                 => $momo_clean,
-                                'description'        => 'Booking #' . $booking_id . ' auto-withdrawal',
-                                'external_reference' => 'SB-OUT-' . $booking_id,
-                            );
-                            if ( $momo_name ) {
-                                $disburse_body['to_name'] = $momo_name;
-                            }
-                            wp_remote_post( $base . '/disburse/', array(
-                                'headers' => array(
-                                    'Content-Type'  => 'application/json',
-                                    'Authorization' => 'Token ' . $d_token,
-                                ),
-                                'body'    => json_encode( $disburse_body ),
-                                'timeout' => 45,
-                            ) );
-                        }
+                    // Log the disburse result so admin can verify it worked
+                    if ( is_wp_error( $disburse_resp ) ) {
+                        sb_debug_log( 'CamPay disburse FAILED for booking #' . $booking_id . ': ' . $disburse_resp->get_error_message() );
+                    } else {
+                        $disburse_result = json_decode( wp_remote_retrieve_body( $disburse_resp ), true );
+                        $disburse_ref    = $disburse_result['reference'] ?? ( $disburse_result['id'] ?? 'no-ref' );
+                        $disburse_status = $disburse_result['status'] ?? wp_remote_retrieve_response_code( $disburse_resp );
+                        sb_debug_log( 'CamPay disburse booking #' . $booking_id . ' — ' . $disburse_amount . ' XAF to ' . $momo_clean . ' — ref: ' . $disburse_ref . ' status: ' . $disburse_status );
+                        // Save disburse info on the booking internal note
+                        global $wpdb;
+                        $wpdb->query( $wpdb->prepare(
+                            "UPDATE {$wpdb->prefix}sb_bookings SET internal_note = CONCAT(IFNULL(internal_note,''), %s) WHERE id = %d",
+                            ' | CamPay disburse ' . $disburse_amount . ' XAF → ' . $momo_clean . ' ref:' . $disburse_ref,
+                            $booking_id
+                        ) );
                     }
                 }
             }

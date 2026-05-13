@@ -5,7 +5,6 @@ function sbAdminPrimary(){return getComputedStyle(document.documentElement).getP
 $(document).ready(function () {
 
     // ── Color pickers ──────────────────────────────────────────
-    // ── Color pickers ──────────────────────────────────────────
     if ($.fn.wpColorPicker) {
         $('.sbw-color').wpColorPicker({
             change: function (event, ui) {
@@ -361,7 +360,7 @@ $(document).ready(function () {
                 alert('Save failed. Please try again.');
                 $btn.prop('disabled', false).text('Save Settings');
             }
-        }).fail(function() {
+        }).fail(function () {
             alert('Network error. Please try again.');
             $btn.prop('disabled', false).text('Save Settings');
         });
@@ -438,6 +437,89 @@ $(document).ready(function () {
         $('#sbAdminCalStaff').on('change', load);
         load();
     }
+
+    // ── CamPay Connection Test ─────────────────────────────────
+    $(document).on('click', '#sbTestCampay', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $btn = $(this);
+        var $res = $('#sbCampayTestResult');
+
+        // Read LIVE values currently typed in the form (not just what's saved in DB)
+        var username = $('[name="campay_username"]').val() || '';
+        var password = $('[name="campay_password"]').val() || '';
+        var sandbox  = $('[name="campay_sandbox"]').is(':checked') ? '1' : '0';
+
+        if (!username || !password) {
+            $res.show().html('<div style="background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;color:#dc2626;font-size:.83rem">⚠️ Please enter your CamPay Username and Password in the fields above first.</div>');
+            return;
+        }
+
+        $btn.prop('disabled', true).find('.dashicons').addClass('spin');
+        $res.show().html('<span style="color:#6b7280;font-size:.83rem">⏳ Connecting to CamPay…</span>');
+
+        $.post(SB.ajax, {
+            action:          'sb_test_campay',
+            nonce:           SB.nonce,
+            campay_username: username,
+            campay_password: password,
+            campay_sandbox:  sandbox
+        }, function (res) {
+            $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
+            var log    = (res.data && res.data.log) ? res.data.log : [];
+            var color  = res.success ? '#15803d' : '#dc2626';
+            var bg     = res.success ? '#f0fdf4' : '#fff5f5';
+            var border = res.success ? '#bbf7d0' : '#fecaca';
+            var html = '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;padding:12px 14px;font-family:monospace;font-size:.79rem;line-height:1.9;color:' + color + ';white-space:pre-wrap">';
+            html += log.map(function (l) { return $('<div>').text(l).html(); }).join('\n');
+            html += '</div>';
+            $res.html(html);
+        }).fail(function () {
+            $btn.prop('disabled', false).find('.dashicons').removeClass('spin');
+            $res.show().html('<div style="background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;color:#dc2626;font-size:.83rem">❌ Network error — could not reach WordPress. Check your server connection.</div>');
+        });
+    });
+
+    // ── Mobile UX: wrap all admin tables in a scroll container ──
+    function wrapTablesForMobile() {
+        $('.sbw-card .sbw-tbl').each(function () {
+            var $tbl = $(this);
+            if ($tbl.parent().hasClass('sbw-tbl-scroll')) return;
+            $tbl.wrap('<div class="sbw-tbl-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;"></div>');
+        });
+    }
+    wrapTablesForMobile();
+    $(document).ajaxComplete(function () { wrapTablesForMobile(); });
+
+    // ── Mobile: collapsible settings sections ──
+    if (window.innerWidth <= 680) {
+        $('.sbw-settings-section').each(function (i) {
+            if (i === 0) return;
+            $(this).find('.sbw-settings-section-body').css('display','none');
+            $(this).find('.sbw-settings-section-head').css('cursor','pointer').append('<span class="sb-tog" style="margin-left:auto;font-size:.8rem;color:var(--sb-muted)">▼</span>');
+        });
+        $(document).on('click','.sbw-settings-section-head',function(){
+            var $b=$(this).siblings('.sbw-settings-section-body');
+            $(this).find('.sb-tog').text($b.is(':visible')?'▼':'▲');
+            $b.slideToggle(180);
+        });
+    }
+    jQuery(document).ready(function($) {
+    // Target the sidebar nav items from your PHP code
+    const $navItems = $('.sbw-portal-navitem');
+
+    $navItems.on('click', function(e) {
+        // 1. Visual feedback: Remove active class from all, add to this one
+        $navItems.removeClass('active');
+        $(this).addClass('active');
+
+        // 2. Navigation: 
+        // Since these are standard <a> tags, the browser will 
+        // naturally follow the href link to the new section.
+        // We only add a small "loading" feel if desired.
+        $(this).css('opacity', '0.7'); 
+    });
+});
 
 });
 })(jQuery);

@@ -50,7 +50,7 @@ class SB_Calendar_Page {
                 'date'        => $b->booking_date,
                 'start'       => $b->start_time,
                 'end'         => $b->end_time,
-                'color'       => $b->service_color ?? '#5B2D8E',
+                'color'       => $b->service_color ?? '#111111',
                 'status'      => $b->status,
                 'staff'       => $b->staff_name,
                 'phone'       => $b->customer_phone,

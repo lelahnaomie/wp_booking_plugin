@@ -1,0 +1,429 @@
+/* ============================================================
+   Smart Booking — Frontend Portal Login Page
+   ============================================================ */
+
+:root {
+    --sb-p:    #5B2D8E;
+    --sb-pd:   #3b1a5c;
+    --sb-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ── FULL PAGE GRADIENT WRAP ─────────────────────────────── */
+.sb-login-wrap {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--sb-pd) 0%, var(--sb-p) 55%, #7c3aed 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px 32px;
+    box-sizing: border-box;
+    font-family: var(--sb-font);
+    /* Full bleed: override common theme constraints */
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+}
+
+/* ── CARD ────────────────────────────────────────────────── */
+.sb-login-card {
+    background: transparent;
+    border-radius: 20px;
+    box-shadow: none;
+    padding: 40px 44px 44px;
+    width: 100%;
+    max-width: 420px;
+    box-sizing: border-box;
+}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+.sb-login-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.sb-login-icon {
+    width: 62px;
+    height: 62px;
+    background: linear-gradient(135deg, var(--sb-p), var(--sb-pd));
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(91, 45, 142, 0.38);
+}
+
+.sb-login-biz {
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    color: #18113a !important;
+    margin: 0 0 5px !important;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.sb-login-sub {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* ── ERROR MESSAGE ───────────────────────────────────────── */
+.sb-login-error {
+    background: #fef2f2;
+    border: 1.5px solid #fca5a5;
+    border-left: 4px solid #dc2626;
+    color: #991b1b;
+    border-radius: 10px;
+    padding: 11px 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+/* ── FORM FIELDS ─────────────────────────────────────────── */
+.sb-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.sb-login-field {
+    margin-bottom: 18px;
+}
+
+.sb-login-field label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.sb-login-field input[type="text"],
+.sb-login-field input[type="password"],
+.sb-login-field input[type="email"] {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.91rem;
+    font-family: var(--sb-font);
+    color: #111827;
+    background: #f9fafb;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    box-shadow: none;
+    outline: none;
+    /* Reset theme interference */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.sb-login-field input:focus {
+    border-color: var(--sb-p);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.12);
+}
+
+/* ── PASSWORD WRAPPER ────────────────────────────────────── */
+.sb-pwd-wrap {
+    position: relative;
+}
+
+.sb-pwd-wrap input {
+    padding-right: 44px !important;
+}
+
+.sb-pwd-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #9ca3af;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+    box-shadow: none !important;
+}
+
+.sb-pwd-toggle:hover { color: var(--sb-p); }
+.sb-pwd-toggle:focus { outline: none; }
+
+.sb-pwd-toggle svg { width: 18px; height: 18px; }
+.sb-pwd-toggle .sb-eye-hide { display: none; }
+.sb-pwd-toggle.visible .sb-eye-show { display: none; }
+.sb-pwd-toggle.visible .sb-eye-hide { display: block; }
+
+/* ── REMEMBER + FORGOT ───────────────────────────────────── */
+.sb-login-remember {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+    gap: 8px;
+}
+
+.sb-remember-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.83rem;
+    color: #64748b;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.sb-remember-label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--sb-p);
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.sb-forgot-link {
+    font-size: 0.82rem;
+    color: var(--sb-p) !important;
+    text-decoration: none !important;
+    font-weight: 600;
+    transition: color 0.15s;
+    white-space: nowrap;
+}
+
+.sb-forgot-link:hover {
+    color: var(--sb-pd) !important;
+    text-decoration: underline !important;
+}
+
+/* ── SUBMIT BUTTON ───────────────────────────────────────── */
+.sb-login-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--sb-p), var(--sb-pd));
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: var(--sb-font);
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(91, 45, 142, 0.38);
+    transition: all 0.18s ease;
+    letter-spacing: 0.01em;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.sb-login-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 24px rgba(91, 45, 142, 0.5);
+    filter: brightness(1.06);
+}
+
+.sb-login-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 10px rgba(91, 45, 142, 0.3);
+}
+
+/* ── FOOTER NOTE ─────────────────────────────────────────── */
+.sb-login-footer-note {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.74rem;
+    text-align: center;
+    margin-top: 22px;
+    font-family: var(--sb-font);
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .sb-login-wrap {
+        padding: 24px 12px 24px;
+        justify-content: flex-start;
+        padding-top: 40px;
+    }
+
+    .sb-login-card {
+        padding: 30px 22px 34px;
+        border-radius: 16px;
+        max-width: 100%;
+    }
+
+    .sb-login-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+    }
+
+    .sb-login-biz {
+        font-size: 1.15rem !important;
+    }
+
+    .sb-login-remember {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .sb-login-btn {
+        padding: 12px 0;
+        font-size: 0.9rem;
+    }
+}
+
+/* ── Role selector ───────────────────────────── */
+.sb-login-role-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The icon badge left of the select */
+.sb-login-role-wrap .sb-role-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: var(--sb-p, #5B2D8E);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.sb-login-role-select {
+    width: 100%;
+    padding: 11px 42px 11px 40px;   /* left pad for icon, right pad for arrow */
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.91rem;
+    font-family: inherit;
+    color: #111827;
+    background: #f9fafb;
+    box-sizing: border-box;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    outline: none;
+}
+
+.sb-login-role-select:focus {
+    border-color: var(--sb-p, #5B2D8E);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.12);
+}
+
+/* Custom chevron arrow */
+.sb-login-role-wrap::after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--sb-p, #5B2D8E);
+    pointer-events: none;
+}
+
+/* Role pill badges that appear below the select */
+.sb-role-pills {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.sb-role-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.sb-role-pill.active {
+    background: var(--sb-p, #5B2D8E);
+    color: #fff;
+}
+
+.sb-role-pill svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+/* ── Transparent card overrides: make labels/fields readable on gradient ── */
+.sb-login-card .sb-login-biz {
+    color: #fff !important;
+}
+.sb-login-card .sb-login-sub {
+    color: rgba(255,255,255,0.65);
+}
+.sb-login-card .sb-login-field label {
+    color: rgba(255,255,255,0.9);
+}
+.sb-login-card .sb-login-field input[type="text"],
+.sb-login-card .sb-login-field input[type="password"],
+.sb-login-card .sb-login-field input[type="email"] {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+}
+.sb-login-card .sb-login-field input::placeholder {
+    color: rgba(255,255,255,0.5);
+}
+.sb-login-card .sb-login-field input:focus {
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.7);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+}
+.sb-login-card .sb-remember-label {
+    color: rgba(255,255,255,0.75);
+}
+.sb-login-card .sb-forgot-link {
+    color: rgba(255,255,255,0.9) !important;
+}
+.sb-login-card .sb-forgot-link:hover {
+    color: #fff !important;
+}
+.sb-login-card .sb-login-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.5);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.2);
+}
+.sb-login-card .sb-login-btn:hover {
+    background: rgba(255,255,255,0.3);
+    box-shadow: 0 7px 24px rgba(0,0,0,0.3);
+}
+.sb-login-card .sb-pwd-toggle {
+    color: rgba(255,255,255,0.6);
+}
+.sb-login-card .sb-pwd-toggle:hover {
+    color: #fff;
+}

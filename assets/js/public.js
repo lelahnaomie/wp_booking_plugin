@@ -48,15 +48,23 @@ window.sbAdjDays=function(delta){
     var $i=$('#sbDaysInput');
     var v=Math.max(1,parseInt($i.val()||1)+delta);
     $i.val(v);
-    // Update prices on service cards to reflect days multiplier
+    // Update prices and duration on service cards to reflect days multiplier
     var cur=$('[data-currency]').attr('data-currency')||'FCFA';
+    var daysOn=(typeof SB!=='undefined'&&parseInt(SB.enable_daily_rental||0))===1;
     $('.sb-service-card').each(function(){
         var basePrice=parseFloat($(this).data('price'))||0;
+        // Update price display
         if(basePrice>0){
             var $priceEl=$(this).find('.sb-svc-price');
             var total=Math.round(basePrice*v);
-            $priceEl.text(total.toLocaleString()+' '+cur+(v>1?' (×'+v+')':''));
+            if(v>1){$priceEl.html('<span class="sb-price-base">'+Math.round(basePrice).toLocaleString()+' '+cur+'</span><span class="sb-price-calc"> &times; '+v+' = '+total.toLocaleString()+' '+cur+'</span>');}
+            else{$priceEl.text(Math.round(basePrice).toLocaleString()+' '+cur);}
             $priceEl.data('days',v);
+        }
+        // Update duration/days label on card if daily rental mode
+        if(daysOn){
+            var $durEl=$(this).find('.sb-svc-dur');
+            $durEl.text('⏱ '+(v===1?'1 Day':v+' Days'));
         }
     });
 };
@@ -86,11 +94,14 @@ $(document).on('click','.sb-service-card',function(e){
 
 function openServiceModal($c){
     var id=parseInt($c.data('id')),name=$c.data('name')||$c.find('strong').first().text().trim();
-    var price=parseFloat($c.data('price'))||0,depPct=parseFloat($c.data('deposit'))||0;
+    var basePrice=parseFloat($c.data('price'))||0,depPct=parseFloat($c.data('deposit'))||0;
     var dur=parseInt($c.data('duration'))||60,desc=$c.data('desc')||'';
     var color=$c.data('color')||sbPrimary(),image=$c.data('image')||'';
     var policy=$c.attr('data-policy')||'';
     var galleryRaw=$c.attr('data-gallery')||'';
+    // Read the days stepper so modal price reflects selected number of days
+    var numDays=parseInt($('#sbDaysInput').val()||1)||1;
+    var price=Math.round(basePrice*numDays);
     var dep=depPct>0?Math.round(price*depPct/100):0;
     var staffList=[];
     var staffOn=(typeof SB!=='undefined'&&parseInt(SB.require_staff||1))===1;
@@ -126,28 +137,11 @@ function openServiceModal($c){
         }
     }
 
-    var html='<div class="sb-svc-modal-inner">'+imgHtml+galleryHtml+'<div class="sb-svc-modal-body"><h3>'+esc(name)+'</h3><div class="sb-svc-modal-meta"><span>⏱ '+fmtDur(dur)+'</span>'+(price>0?'<span class="sb-svc-meta-price">'+fmt(price)+' '+currency+'</span>':'<span>Free</span>')+(dep>0?'<span class="sb-svc-dep-badge">Deposit: '+fmt(dep)+' '+currency+'</span>':'')+'</div>'+(desc?'<p class="sb-svc-modal-desc">'+esc(desc)+'</p>':'')+(policy?'<div class="sb-svc-policy-link"><a href="#" class="sb-svc-policy-toggle">View service policy &amp; terms</a><div class="sb-svc-policy-box" style="display:none"><p>'+esc(policy)+'</p></div></div>':'')+staffSection+'</div><div class="sb-svc-modal-foot"><button class="sb-btn sb-btn-ghost" id="sbSvcCancel">Cancel</button><button class="sb-btn sb-btn-primary" id="sbSvcSelect" data-id="'+id+'" data-name="'+esc(name)+'" data-price="'+price+'" data-dep="'+depPct+'" data-dur="'+dur+'">Book This &#8594;</button></div></div>';
+    var html='<div class="sb-svc-modal-inner">'+imgHtml+galleryHtml+'<div class="sb-svc-modal-body"><h3>'+esc(name)+'</h3><div class="sb-svc-modal-meta"><span>⏱ '+fmtDur(dur,numDays)+'</span>'+(basePrice>0?'<span class="sb-svc-meta-price">'+fmt(basePrice)+' '+currency+(numDays>1?' × '+numDays+' = '+fmt(price):'')+'</span>':'<span>Free</span>')+(dep>0?'<span class="sb-svc-dep-badge">Deposit: '+fmt(dep)+' '+currency+'</span>':'')+'</div>'+(desc?'<p class="sb-svc-modal-desc">'+esc(desc)+'</p>':'')+(policy?'<div class="sb-svc-policy-link"><a href="#" class="sb-svc-policy-toggle">View service policy &amp; terms</a><div class="sb-svc-policy-box" style="display:none"><p>'+esc(policy)+'</p></div></div>':'')+staffSection+'</div><div class="sb-svc-modal-foot"><button class="sb-btn sb-btn-ghost" id="sbSvcCancel">Cancel</button><button class="sb-btn sb-btn-primary" id="sbSvcSelect" data-id="'+id+'" data-name="'+esc(name)+'" data-price="'+basePrice+'" data-dep="'+depPct+'" data-dur="'+dur+'">Book This &#8594;</button></div></div>';
 
     if(!$('#sbSvcModal').length)$('<div class="sb-modal-overlay" id="sbSvcModal"></div>').appendTo('body');
     $('#sbSvcModal').html('<div class="sb-modal-box sb-svc-modal-box">'+html+'</div>').fadeIn(200);
     $('#sbSvcModal').data({staff:staffList,single:staffList.length===1?staffList[0]:null});
-
-    var staffHtml='';
-    if(staffList.length===0){
-        staffHtml=''; // enable_staff is OFF — show nothing
-    } else if(staffList.length===1){
-        var st=staffList[0];
-        var av=st.image?'<img src="'+esc(st.image)+'" class="sb-svc-staff-av-img" alt="">':'<span class="sb-svc-staff-av-init" style="background:'+esc(st.color||sbPrimary())+'">'+esc(st.name.charAt(0))+'</span>';
-        staffHtml='<div class="sb-svc-staff-single">'+av+'<div class="sb-svc-staff-info"><strong>'+esc(st.name)+'</strong>'+(st.bio?'<p>'+esc(st.bio)+'</p>':'')+'</div></div>';
-    } else {
-        staffHtml='<div class="sb-svc-staff-pick"><label>Choose your specialist:</label><select class="sb-svc-staff-sel" id="sbModalStaffSel"><option value="0" data-name="Any available specialist" data-color="'+sbPrimary()+'">'+ ' Any available specialist (recommended)</option>';
-        staffList.forEach(function(st){staffHtml+='<option value="'+st.id+'" data-name="'+esc(st.name)+'" data-color="'+esc(st.color||sbPrimary())+'" data-bio="'+esc(st.bio||'')+'">'+esc(st.name)+(st.bio?' — '+esc(st.bio.substring(0,45)):'')+'</option>';});
-        staffHtml+='</select><div id="sbStaffBioBox" class="sb-staff-bio-box" style="display:none"><p id="sbStaffBioPrev"></p></div></div>';
-    }
-    var staffSection = staffHtml ? '<div class="sb-svc-staff-section"><h4>Your specialist</h4>'+staffHtml+'</div>' : '';
-
-    var imgHtml=image?'<div class="sb-svc-modal-img" style="background-image:url(\''+esc(image)+'\')"></div>':'<div class="sb-svc-modal-bar" style="background:'+esc(color)+'"></div>';
-    var html='<div class="sb-svc-modal-inner">'+imgHtml+'<div class="sb-svc-modal-body"><h3>'+esc(name)+'</h3><div class="sb-svc-modal-meta"><span>⏱ '+fmtDur(dur)+'</span>'+(price>0?'<span class="sb-svc-meta-price">'+fmt(price)+' '+currency+'</span>':'<span>Free</span>')+(dep>0?'<span class="sb-svc-dep-badge">Deposit: '+fmt(dep)+' '+currency+'</span>':'')+'</div>'+(desc?'<p class="sb-svc-modal-desc">'+esc(desc)+'</p>':'')+(policy?'<div class="sb-svc-policy-link"><a href="#" class="sb-svc-policy-toggle">View service policy &amp; terms</a><div class="sb-svc-policy-box" style="display:none"><p>'+esc(policy)+'</p></div></div>':'')+staffSection+'</div><div class="sb-svc-modal-foot"><button class="sb-btn sb-btn-ghost" id="sbSvcCancel">Cancel</button><button class="sb-btn sb-btn-primary" id="sbSvcSelect" data-id="'+id+'" data-name="'+esc(name)+'" data-price="'+price+'" data-dep="'+depPct+'" data-dur="'+dur+'">Book This &#8594;</button></div></div>';
 
     if(!$('#sbSvcModal').length)$('<div class="sb-modal-overlay" id="sbSvcModal"></div>').appendTo('body');
     $('#sbSvcModal').html('<div class="sb-modal-box sb-svc-modal-box">'+html+'</div>').fadeIn(200);
@@ -221,8 +215,8 @@ function buildReview(){
     var totalPrice=basePrice*numDays;
     var dep=s.service.depositPct>0?Math.round(totalPrice*s.service.depositPct/100):0,bal=totalPrice-dep;
     var staffOn=(typeof SB!=='undefined'&&parseInt(SB.require_staff||1))===1;
-    var h='<div class="sb-review-rows">'+rrow('Service',s.service.name)+(staffOn?rrow('Specialist',s.staff.name):'')+rrow('Date',dl)+rrow('Arrival Time',s.time.label+(s.time.end_time?' — '+toAmPm(s.time.end_time):''))+(numDays>1?rrow('Number of Days',numDays+' days'):'')+rrow('Name',name)+rrow('Phone',phone)+(email?rrow('Email',email):'')+(notes?rrow('Notes',notes):'');
-    if(totalPrice>0)h+='<div class="sb-review-row sb-rr-total"><span class="sb-rlabel">Total Amount</span><span class="sb-rvalue sb-review-price">'+fmt(totalPrice)+' '+currency+'</span></div>';
+    var h='<div class="sb-review-rows">'+rrow('Service',s.service.name)+(staffOn?rrow('Specialist',s.staff.name):'')+rrow('Arrival Date',dl)+rrow('Arrival Time',s.time.label+(s.time.end_time?' — '+toAmPm(s.time.end_time):''))+rrow('Number of Days',numDays+' day'+(numDays>1?'s':''))+rrow('Name',name)+rrow('Phone',phone)+(email?rrow('Email',email):'')+(notes?rrow('Notes',notes):'');
+    if(totalPrice>0){var unitBreakdown='<span class="sb-review-unit-price">'+fmt(basePrice)+' '+currency+' &times; '+numDays+' day'+(numDays>1?'s':'')+'</span>';h+='<div class="sb-review-row sb-rr-total"><span class="sb-rlabel">Total Amount</span><span class="sb-rvalue sb-review-price-wrap"><span class="sb-review-price">'+fmt(totalPrice)+' '+currency+'</span>'+unitBreakdown+'</span></div>';}
     h+='</div>';
     if(dep>0)h+='<div class="sb-deposit-info-box"><div class="sb-dib-title"> Deposit Required</div><div class="sb-dib-row"><span>Deposit ('+s.service.depositPct+'%)</span><strong>'+fmt(dep)+' '+currency+'</strong></div><div class="sb-dib-row sb-dib-bal"><span>Balance on appointment day</span><span>'+fmt(bal)+' '+currency+'</span></div><p class="sb-dib-note">We will contact you to arrange the deposit. Booking confirmed once deposit received.</p></div>';
     $('#sbReviewCard').html(h);
@@ -230,15 +224,21 @@ function buildReview(){
 function rrow(l,v){return '<div class="sb-review-row"><span class="sb-rlabel">'+esc(l)+'</span><span class="sb-rvalue">'+esc(v)+'</span></div>';}
 
 /*  SUBMIT  */
+/* Helper: fetch a live nonce from admin-ajax (bypasses page cache), then run callback */
+function sbWithNonce(cb){
+    $.get(SB.ajax,{action:'sb_get_nonce'},function(r){cb(r.success?r.data.nonce:SB.nonce);}).fail(function(){cb(SB.nonce);});
+}
 window.SBApp.submitBooking=function(){
     var $btn=$('#sbConfirmBtn');$btn.prop('disabled',true).find('.sb-btn-label').hide();$btn.find('.sb-btn-spinner').show();hideErr();
-    $.post(SB.ajax,{action:'sb_submit_booking',nonce:window.SB_NONCE||SB.nonce,service_id:window.SBApp.state.service.id,staff_id:window.SBApp.state.staff.id,date:window.SBApp.state.date,time:window.SBApp.state.time.time,end_time:window.SBApp.state.time.end_time||'',name:$('#sbCustName').val().trim(),phone:$('#sbCustPhone').val().trim(),email:$('#sbCustEmail').val().trim(),notes:$('#sbCustNotes').val().trim(),sb_days:parseInt($('#sbDaysInput').val()||1)||1},
+    sbWithNonce(function(nonce){
+    $.post(SB.ajax,{action:'sb_submit_booking',nonce:nonce,service_id:window.SBApp.state.service.id,staff_id:window.SBApp.state.staff.id,date:window.SBApp.state.date,time:window.SBApp.state.time.time,end_time:window.SBApp.state.time.end_time||'',name:$('#sbCustName').val().trim(),phone:$('#sbCustPhone').val().trim(),email:$('#sbCustEmail').val().trim(),notes:$('#sbCustNotes').val().trim(),sb_days:parseInt($('#sbDaysInput').val()||1)||1},
     function(res){
         $btn.prop('disabled',false).find('.sb-btn-label').show();$btn.find('.sb-btn-spinner').hide();
         if(!res.success){showErr(res.data.msg||'Something went wrong.');return;}
         var d=res.data;window.SBApp.state.bookingResult=d;
         if(d.deposit_required&&d.deposit_amount>0)showPaymentStep(d);else showFinalSuccess(d);
     }).fail(function(){$btn.prop('disabled',false).find('.sb-btn-label').show();$btn.find('.sb-btn-spinner').hide();showErr('Connection error. Please try again.');});
+    }); // end sbWithNonce
 };
 
 /*  PAYMENT  */
@@ -258,25 +258,28 @@ function showPaymentStep(d){
     $(document).off('click.cp').on('click.cp','#sbPayCampay',function(){launchCampay(d);});
 }
 function launchPS(d){PaystackPop.setup({key:d.paystack_pk,email:d.customer_email||'noemail@smartbooking.cm',amount:Math.round(d.deposit_amount*100),currency:d.currency==='FCFA'?'GHS':d.currency||'GHS',ref:'SB-'+d.booking_id+'-'+Date.now(),callback:function(r){verifyPS(r.reference,d.booking_id);},onClose:function(){}}).openIframe();}
-function verifyPS(ref,bid){$('#sbPaymentPanel').html('<div style="padding:40px;text-align:center;color:var(--p)">Verifying payment...</div>');$.post(SB.ajax,{action:'sb_paystack_verify',nonce:window.SB_NONCE||SB.nonce,reference:ref,booking_id:bid},function(res){if(res.success)showFinalSuccess($.extend({},window.SBApp.state.bookingResult,res.data));else alert(res.data.msg||'Verification failed. Ref: '+ref);});}
+function verifyPS(ref,bid){$('#sbPaymentPanel').html('<div style="padding:40px;text-align:center;color:var(--p)">Verifying payment...</div>');sbWithNonce(function(nonce){$.post(SB.ajax,{action:'sb_paystack_verify',nonce:nonce,reference:ref,booking_id:bid},function(res){if(res.success)showFinalSuccess($.extend({},window.SBApp.state.bookingResult,res.data));else alert(res.data.msg||'Verification failed. Ref: '+ref);});});}
 function launchFLW(d){FlutterwaveCheckout({public_key:d.flw_pk,tx_ref:'SB-'+d.booking_id+'-'+Date.now(),amount:d.deposit_amount,currency:d.currency||'XOF',payment_options:'mobilemoneyfranco,mobilemoneyghana,card',customer:{email:d.customer_email||'noemail@smartbooking.cm',phone_number:d.customer_phone,name:d.customer_name},customizations:{title:'Booking Deposit',description:'#'+d.booking_id},callback:function(data){if(data.status==='successful')verifyFLW(data.transaction_id,d.booking_id);},onclose:function(){}});}
-function verifyFLW(txid,bid){$('#sbPaymentPanel').html('<div style="padding:40px;text-align:center;color:var(--p)">Verifying payment...</div>');$.post(SB.ajax,{action:'sb_flw_verify',nonce:window.SB_NONCE||SB.nonce,transaction_id:txid,booking_id:bid},function(res){if(res.success)showFinalSuccess($.extend({},window.SBApp.state.bookingResult,res.data));else alert(res.data.msg||'Verification failed.');});}
+function verifyFLW(txid,bid){$('#sbPaymentPanel').html('<div style="padding:40px;text-align:center;color:var(--p)">Verifying payment...</div>');sbWithNonce(function(nonce){$.post(SB.ajax,{action:'sb_flw_verify',nonce:nonce,transaction_id:txid,booking_id:bid},function(res){if(res.success)showFinalSuccess($.extend({},window.SBApp.state.bookingResult,res.data));else alert(res.data.msg||'Verification failed.');});});}
 function launchCampay(d){
     var phone=d.customer_phone||'';
     var entered=prompt('Enter the MTN or Orange MoMo number to charge (e.g. 671234567 or 237671234567):',phone);
     if(!entered)return;
     $('#sbPaymentPanel').html('<div style="padding:40px;text-align:center;color:var(--p)"><p style="font-size:1.1rem;margin-bottom:8px">📱 Payment request sent!</p><p>Please check your phone and approve the MoMo request.<br>This page will update automatically once payment is confirmed.</p><div class="sb-spinner" style="margin:20px auto"></div></div>');
-    $.post(SB.ajax,{action:'sb_campay_initiate',nonce:window.SB_NONCE||SB.nonce,booking_id:d.booking_id,phone:entered},function(res){
+    sbWithNonce(function(nonce){
+    $.post(SB.ajax,{action:'sb_campay_initiate',nonce:nonce,booking_id:d.booking_id,phone:entered},function(res){
         if(!res.success){$('#sbPaymentPanel').html('<div style="padding:30px;text-align:center"><p style="color:#c0392b">'+esc(res.data.msg||'Payment failed.')+'</p><button class="sb-pay-btn sb-pay-campay" id="sbPayCampay" style="margin-top:14px">Try Again</button></div>');$(document).off('click.cp').on('click.cp','#sbPayCampay',function(){launchCampay(d);});return;}
         pollCampay(res.data.reference,d.booking_id,0,d);
     }).fail(function(){$('#sbPaymentPanel').html('<div style="padding:30px;text-align:center;color:#c0392b">Connection error. Please try again.</div>');});
+    }); // end sbWithNonce
 }
 var _cpPollTimer=null;
 function pollCampay(ref,bid,attempts,d){
     if(_cpPollTimer)clearTimeout(_cpPollTimer);
     if(attempts>20){$('#sbPaymentPanel').html('<div style="padding:30px;text-align:center"><p>Payment timed out. If you approved the request, contact us with booking #'+bid+'.</p><a href="'+esc(d.wa_url)+'" class="sb-pay-btn sb-pay-wa" target="_blank">💬 Contact via WhatsApp</a></div>');return;}
     _cpPollTimer=setTimeout(function(){
-        $.post(SB.ajax,{action:'sb_campay_check',nonce:window.SB_NONCE||SB.nonce,booking_id:bid,reference:ref},function(res){
+        sbWithNonce(function(nonce){
+        $.post(SB.ajax,{action:'sb_campay_check',nonce:nonce,booking_id:bid,reference:ref},function(res){
             if(!res.success){
                 if(res.data&&res.data.failed){$('#sbPaymentPanel').html('<div style="padding:30px;text-align:center"><p style="color:#c0392b">'+esc(res.data.msg||'Payment failed.')+'</p><button class="sb-pay-btn sb-pay-campay" id="sbPayCampay">Try Again</button></div>');$(document).off('click.cp').on('click.cp','#sbPayCampay',function(){launchCampay(d);});}
                 else{pollCampay(ref,bid,attempts+1,d);}
@@ -285,6 +288,7 @@ function pollCampay(ref,bid,attempts,d){
             if(res.data.paid)showFinalSuccess($.extend({},window.SBApp.state.bookingResult,res.data));
             else pollCampay(ref,bid,attempts+1,d);
         }).fail(function(){pollCampay(ref,bid,attempts+1,d);});
+        }); // end sbWithNonce
     },4000);
 }
 
@@ -317,7 +321,7 @@ function pad(n){return n<10?'0'+n:''+n;}
 function fmt(n){return Math.round(n).toLocaleString();}
 function esc(s){return $('<div>').text(String(s||'')).html();}
 function toAmPm(t){if(!t)return '';var p=t.split(':'),h=parseInt(p[0]),m=p[1],ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m+' '+ap;}
-function fmtDur(min){var daysOn=(typeof SB!=='undefined'&&parseInt(SB.enable_daily_rental||0))===1;if(daysOn){var d=Math.max(1,Math.round(min/1440));return d===1?'1 Day':d+' Days';}if(min<60)return min+' min';var h=Math.floor(min/60),m=min%60;return m?h+'h '+m+'min':h+'h';}
+function fmtDur(min,numDaysOverride){var daysOn=(typeof SB!=='undefined'&&parseInt(SB.enable_daily_rental||0))===1;if(daysOn){var d=numDaysOverride&&numDaysOverride>0?numDaysOverride:Math.max(1,Math.round(min/1440));return d===1?'1 Day':d+' Days';}if(min<60)return min+' min';var h=Math.floor(min/60),m=min%60;return m?h+'h '+m+'min':h+'h';}
 function loadScript(src,cb){var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);}
 
 })(jQuery);

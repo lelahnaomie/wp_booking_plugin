@@ -53,7 +53,7 @@ class SB_Notification {
 
     private function customer_email_html( $b, $currency, $site ) {
         $ap    = get_option( 'sb_appearance', array() );
-        $color = sanitize_hex_color( $ap['primary'] ?? '#5B2D8E' ) ?: '#5B2D8E';
+        $color = sanitize_hex_color( $ap['primary'] ?? '#111111' ) ?: '#111111';
         $date  = date( 'l, d F Y', strtotime( $b->booking_date ) );
         $time  = date( 'g:i A', strtotime( $b->start_time ) )
                . ' – ' . date( 'g:i A', strtotime( $b->end_time ) );
@@ -80,7 +80,7 @@ class SB_Notification {
 
     private function admin_email_html( $b, $currency, $site ) {
         $ap    = get_option( 'sb_appearance', array() );
-        $color = sanitize_hex_color( $ap['primary'] ?? '#5B2D8E' ) ?: '#5B2D8E';
+        $color = sanitize_hex_color( $ap['primary'] ?? '#111111' ) ?: '#111111';
         $date  = date( 'l, d F Y', strtotime( $b->booking_date ) );
         $time  = date( 'g:i A', strtotime( $b->start_time ) )
                . ' – ' . date( 'g:i A', strtotime( $b->end_time ) );
@@ -110,7 +110,7 @@ class SB_Notification {
         $currency = get_option( 'sb_currency', 'FCFA' );
         $site     = get_bloginfo( 'name' );
         $ap       = get_option( 'sb_appearance', array() );
-        $color    = sanitize_hex_color( $ap['primary'] ?? '#5B2D8E' ) ?: '#5B2D8E';
+        $color    = sanitize_hex_color( $ap['primary'] ?? '#111111' ) ?: '#111111';
         $settings = get_option( 'sb_settings', array() );
         $date     = date( 'l, d F Y', strtotime( $b->booking_date ) );
         $time     = date( 'g:i A', strtotime($b->start_time) )
@@ -323,7 +323,7 @@ class SB_Notification {
         $currency    = get_option( 'sb_currency', 'FCFA' );
         $settings    = get_option( 'sb_settings', array() );
         $ap          = get_option( 'sb_appearance', array() );
-        $color       = sanitize_hex_color( $ap['primary'] ?? '#5B2D8E' ) ?: '#5B2D8E';
+        $color       = sanitize_hex_color( $ap['primary'] ?? '#111111' ) ?: '#111111';
         $admin_email = $settings['notify_email'] ?? get_option( 'admin_email' );
         $admin_url   = admin_url( 'admin.php?page=sb-bookings' );
 
